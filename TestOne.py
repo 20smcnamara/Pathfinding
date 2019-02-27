@@ -66,18 +66,6 @@ class Map:
         can_return = False
 
         # Draw where checking
-        # before = self.map[leaving[0]][leaving[1]]
-        # if len(self.map) <= leaving[0] or leaving[0] < 0 or len(self.map[0]) <= leaving[1] or \
-        #         leaving[1] < 0 or self.map[leaving[0]][leaving[1]] == 0:
-        #     self.highlighted_map[leaving[0]][leaving[1]] = 3
-        #     can_return = True
-        # elif leaving == entering:
-        #     self.highlighted_map[leaving[0]][leaving[1]] = 4
-        # else:
-        #     self.highlighted_map[leaving[0]][leaving[1]] = 2
-        # self.draw()
-        # time.sleep(.1)
-        # self.highlighted_map[leaving[0]][leaving[1]] = before
         self.highlight_route(new_made_moves, is_route=False)
         self.draw()
         time.sleep(.1)
