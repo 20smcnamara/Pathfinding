@@ -1,0 +1,42 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1504\cocoasubrtf830
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 /usr/local/bin/python3 /Users/20smcnamara/PycharmProjects/PathFinding/PathfindingMain/Client.py\
+pygame 1.9.4\
+Hello from the pygame community. https://www.pygame.org/contribute.html\
+2019-03-03 21:07:16.355 Python[17058:491984] *** Terminating app due to uncaught exception 'NSInternalInconsistencyException', reason: 'nextEventMatchingMask should only be called from the Main Thread!'\
+*** First throw call stack:\
+(\
+	0   CoreFoundation                      0x00007fffd57d52cb __exceptionPreprocess + 171\
+	1   libobjc.A.dylib                     0x00007fffea60648d objc_exception_throw + 48\
+	2   AppKit                              0x00007fffd39bee82 -[NSApplication(NSEvent) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 4480\
+	3   libSDL-1.2.0.dylib                  0x0000000104532e12 QZ_PumpEvents + 337\
+	4   libSDL-1.2.0.dylib                  0x00000001045117f9 SDL_PumpEvents + 35\
+	5   event.cpython-37m-darwin.so         0x0000000104690b11 event_get + 289\
+	6   Python                              0x0000000103f3d82c _PyMethodDef_RawFastCallKeywords + 235\
+	7   Python                              0x0000000103f3ce9b _PyCFunction_FastCallKeywords + 44\
+	8   Python                              0x0000000103fd59e7 call_function + 554\
+	9   Python                              0x0000000103fcda67 _PyEval_EvalFrameDefault + 5281\
+	10  Python                              0x0000000103f3d289 function_code_fastcall + 117\
+	11  Python                              0x0000000103fcddcd _PyEval_EvalFrameDefault + 6151\
+	12  Python                              0x0000000103f3d289 function_code_fastcall + 117\
+	13  Python                              0x0000000103fd5a52 call_function + 661\
+	14  Python                              0x0000000103fcda4e _PyEval_EvalFrameDefault + 5256\
+	15  Python                              0x0000000103f3d289 function_code_fastcall + 117\
+	16  Python                              0x0000000103fd5a52 call_function + 661\
+	17  Python                              0x0000000103fcda4e _PyEval_EvalFrameDefault + 5256\
+	18  Python                              0x0000000103f3d289 function_code_fastcall + 117\
+	19  Python                              0x0000000103f3dc31 _PyObject_Call_Prepend + 150\
+	20  Python                              0x0000000103f3cfb2 PyObject_Call + 137\
+	21  Python                              0x000000010403ccc2 t_bootstrap + 71\
+	22  libsystem_pthread.dylib             0x00007fffeb15993b _pthread_body + 180\
+	23  libsystem_pthread.dylib             0x00007fffeb159887 _pthread_body + 0\
+	24  libsystem_pthread.dylib             0x00007fffeb15908d thread_start + 13\
+)\
+libc++abi.dylib: terminating with uncaught exception of type NSException\
+\
+Process finished with exit code 134 (interrupted by signal 6: SIGABRT)}

@@ -13,8 +13,8 @@ import random
 pygame.init()
 font = pygame.font.Font('freesansbold.ttf', 15)
 size = [800, 800]
-screen = pygame.display.set_mode(size)
-pygame.display.set_caption("Pathfinder")
+# screen = pygame.display.set_mode(size)
+# pygame.display.set_caption("Pathfinder")
 playing = True
 
 
@@ -45,38 +45,6 @@ class Map:
                 new_row.append(place)
             new_map.append(new_row)
         return new_map
-
-    def draw(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit(0)
-        for row in range(len(self.map)):
-            for col in range(len(self.map[row])):
-                if self.highlighted_map[row][col] == 0:
-                    pygame.draw.rect(screen, (25, 25, 75),
-                                     (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
-                                      size[0] / len(self.map), size[1] / len(self.map[0])))
-                elif self.highlighted_map[row][col] == 1:
-                    pygame.draw.rect(screen, (50, 50, 150),
-                                     (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
-                                      size[0] / len(self.map), size[1] / len(self.map[0])))
-                elif self.highlighted_map[row][col] == 2:
-                    pygame.draw.rect(screen, (0, 255, 161),
-                                     (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
-                                      size[0] / len(self.map), size[1] / len(self.map[0])))
-                elif self.highlighted_map[row][col] == 3:
-                    pygame.draw.rect(screen, (255, 103, 48),
-                                     (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
-                                      size[0] / len(self.map), size[1] / len(self.map[0])))
-                elif self.highlighted_map[row][col] == 4:
-                    pygame.draw.rect(screen, (255, 48, 234),
-                                     (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
-                                      size[0] / len(self.map), size[1] / len(self.map[0])))
-                elif self.highlighted_map[row][col] == 5:
-                    pygame.draw.rect(screen, (84, 242, 0),
-                                     (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
-                                      size[0] / len(self.map), size[1] / len(self.map[0])))
 
     def find_route(self, leaving, entering, made_moves=[], length_to_here=0, first_time=True):
         # Setup for return
@@ -407,24 +375,35 @@ def handle_client(client):  # Takes client socket as argument.
     name = client.recv(BUFSIZ).decode("utf8")
     clients[client] = name
 
-    #while True:
-    msg = client.recv(BUFSIZ)
-    if msg != bytes("{quit}", "utf8"):
-        # broadcast(msg)
-        if msg.startswith("KEYDOWN"):
-            msg = msg.split("KEY")[1]
-            client_index = find_index_of_dict(clients, client)
-            SeverAssets.players[client_index].check_touch_down(msg)
-        if msg.startswith("KEYUP"):
-            msg = msg.split("KEY")[1]
-            client_index = find_index_of_dict(clients, client)
-            SeverAssets.players[client_index].check_touch_up(msg)
-    else:
-        client.send(bytes("{quit}", "utf8"))
-        client.close()
-        del clients[client]
-        broadcast(bytes("%s has left the game." % name, "utf8"))
-        # break
+    while True:
+        accept_incoming_connections()
+        for client in clients:
+            handle_client(client)
+        for player in range(len(players)):
+            broadcast("cords" + str(player) + str(players[player].cords[0]) + ":" + str(players[player].cords[1]))
+        bullet_data_to_send = "bullets" + "|"
+        for bullet in range(len(bullets)):
+            bull = bullets[bullet]
+            bullet_data_to_send += str(bull.cords[0]) + ":" + str(bull.cords[1]) + ":" + str(
+                bull.directions) + ":" + \
+                                   str(bull.weapon.ID)
+        msg = client.recv(BUFSIZ)
+        if msg != bytes("{quit}", "utf8"):
+            # broadcast(msg)
+            if msg.startswith("KEYDOWN"):
+                msg = msg.split("KEY")[1]
+                client_index = find_index_of_dict(clients, client)
+                players[client_index].check_touch_down(msg)
+            if msg.startswith("KEYUP"):
+                msg = msg.split("KEY")[1]
+                client_index = find_index_of_dict(clients, client)
+                players[client_index].check_touch_up(msg)
+        else:
+            client.send(bytes("{quit}", "utf8"))
+            client.close()
+            del clients[client]
+            broadcast(bytes("%s has left the game." % name, "utf8"))
+            break
 
 
 def broadcast(msg, prefix=""):  # prefix is for name identification.
@@ -457,21 +436,17 @@ clients = {}
 addresses = {}
 
 HOST = ''
-PORT = 40
+PORT = 8443
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
 
 SERVER = socket(AF_INET, SOCK_STREAM)
 SERVER.bind(ADDR)
 
-
-while True:
-    for client in clients:
-        handle_client(client)
-    for player in range(len(players)):
-        broadcast("cords" + str(player) + str(players[player].cords[0]) + ":" + str(players[player].cords[1]))
-    bullet_data_to_send = "bullets" + "|"
-    for bullet in range(len(bullets)):
-        bull = bullets[bullet]
-        bullet_data_to_send += str(bull.cords[0]) + ":" + str(bull.cords[1]) + ":" +  str(bull.directions) + ":" +\
-                               str(bull.weapon.ID)
+if __name__ == "__main__":
+    SERVER.listen(5)
+    ACCEPT_THREAD = Thread(target=accept_incoming_connections)
+    ACCEPT_THREAD.start()
+    ACCEPT_THREAD.join()
+    print("END")
+    SERVER.close()

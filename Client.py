@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Script for Tkinter GUI chat client."""
 from socket import AF_INET, socket, SOCK_STREAM
-# from threading import Thread
+from threading import Thread
 
 
 def receive():
@@ -163,22 +163,25 @@ def read_current_scene():
 
 
 def update():
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            send(str="{quit}")
-            quit()
-        if event.type == pygame.KEYDOWN:
-            key = str(event.key)
-            send(str=("KEYDOWN" + key))
-        if event.type == pygame.KEYDOWN:
-            key = str(event.key)
-            send(str=("KEYUP" + key))
-    game_map.draw()
-    for bullet in bullets:
-        bullet.draw()
-    for player in players:
-        player.draw()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                send(str="{quit}")
+                quit()
+            if event.type == pygame.KEYDOWN:
+                key = str(event.key)
+                send(str=("KEYDOWN" + key))
+            if event.type == pygame.KEYDOWN:
+                key = str(event.key)
+                send(str=("KEYUP" + key))
+        game_map.draw()
+        for bullet in bullets:
+            bullet.draw()
+        for player in players:
+            player.draw()
+        pygame.display.update()
+        yield
 
 
 scene = []
@@ -194,11 +197,16 @@ game_map = Map()
 bullets = []
 
 # ----Now comes the sockets part----
-HOST = input('Enter host: ')
-PORT = input('Enter port: ')
-ID = -1
-while ID == -1:
-    print("Loading")
+HOST = ''  # input('Enter host: ')
+PORT = 8443   # input('Enter port: ')
+
+
+BUFSIZ = 1024
+ADDR = (HOST, PORT)
+
+client_socket = socket(AF_INET, SOCK_STREAM)
+client_socket.connect(ADDR)
+ID = 0
 colors = [(255, 0, 0), (0, 255, 0)]
 IDs = [0, 1]
 IDs.remove(ID)
@@ -206,19 +214,10 @@ players = [Dud([23, 12], (0, 0, 0)), Dud([1, 12], (0, 0, 0))]
 players[ID].color = colors[1]
 players[IDs[0]].color = colors[0]
 
-if not PORT:
-    PORT = 33000
-else:
-    PORT = int(PORT)
-
-BUFSIZ = 1024
-ADDR = (HOST, PORT)
-
-client_socket = socket(AF_INET, SOCK_STREAM)
-client_socket.connect(ADDR)
-
-# receive_thread = Thread(target=receive)
-# receive_thread.start()
-
-while True:
-    receive()
+if __name__ == "__main__":
+    update_thread = Thread(target=update)
+    receive_thread = Thread(target=receive)
+    update_thread.start()
+    receive_thread.start()
+    update_thread.join()
+    receive_thread.join()
