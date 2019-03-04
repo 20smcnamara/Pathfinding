@@ -1,5 +1,12 @@
+#!/usr/bin/env python3
+"""Server for multithreaded (asynchronous) chat application."""
+from socket import AF_INET, socket, SOCK_STREAM
+from threading import Thread
+# from PathfindingMain import SeverAssets
+
+
+# My Stuff
 import pygame
-import time
 import math
 import random
 
@@ -88,14 +95,8 @@ class Map:
         if not self.searching_for_route or self.possible_map[leaving[0]][leaving[1]] == 0:
             return [False, [], -1]
 
-        # Draw where checking
-        self.highlight_route(new_made_moves, is_route=False)
-        self.highlighted_map = self.possible_map
-        self.draw()
-
         # Check if at entering
         if leaving == entering:
-            print(length_to_point, made_moves)
             can_find_route = True
             # self.searching_for_route = False
             self.possible_map[leaving[0]][leaving[1]] = 2
@@ -113,7 +114,8 @@ class Map:
             cords_to_remove = []
             for cords_index in range(len(usable_cords)):
                 cords = usable_cords[cords_index]
-                if cords in new_made_moves or len(self.map) <= cords[0] or cords[0] < 0 or len(self.map[0]) <= cords[1] or \
+                if cords in new_made_moves or len(self.map) <= cords[0] or cords[0] < 0 or len(self.map[0]) <= cords[
+                    1] or \
                         cords[1] < 0:
                     cords_to_remove.append(cords_index)
 
@@ -210,58 +212,54 @@ class Map:
         # Return
         return [can_find_route, new_made_moves, length_to_point]
 
-    def highlight_route(self, route, is_route=True):
-        for row in range(len(self.map)):
-            for place in range(len(self.map[row])):
-                if self.highlighted_map[row][place] > 1:
-                    self.highlighted_map[row][place] = self.map[row][place]
-        if (not is_route) or route[0]:
-            if is_route:
-                for cords in route[1]:
-                    self.highlighted_map[cords[0]][cords[1]] = 4
-            else:
-                for cords in route:
-                    self.highlighted_map[cords[0]][cords[1]] = 4
-
     def to_string(self):
         for row in self.map:
             print(row)
 
     def get_map_value(self, cords):
-        return self.map[cords[1]][cords[0]]
+        if len(self.map) > cords[0] > 0 and len(self.map) > cords[1] > 0:
+            return self.map[cords[1]][cords[0]]
+        else:
+            return 0
 
 
 class Bullet:
 
-    def __init__(self, cords, direction, weapon):
+    def __init__(self, cords, direction, weapon, speed=3):
         self.cords = cords
         self.damage = weapon.get_damage()
         self.size = weapon.get_bullet_size()
+        self.max_cool_down = speed
+        self.cool_down = self.max_cool_down
         if direction > 1:
             self.size = [self.size[1], self.size[0]]
         self.direction = direction
 
     def update(self):
-        self.cords = [self.cords[0] + self.direction[0], self.cords[1] + self.direction[1]]
+        if self.cool_down == 0:
+            self.cool_down = self.max_cool_down
+        if self.max_cool_down == self.cool_down:
+            self.cords = [self.cords[0] + directions[self.direction][0], self.cords[1] + directions[self.direction][1]]
+        self.cool_down -= 1
+        if game_map.get_map_value(self.cords) == 0:
+            return True
         for player in players:
             if player.get_cords() == self.cords:
                 player.take_damage(self.damage)
-
-    def draw(self):
-        pygame.draw.rect(screen, (255, 25, 25), (self.cords[0] + tile_size / 2 - self.size[0] / 2,
-                                                 self.cords[1] + tile_size / 2 - self.size[1] / 2,
-                                                 self.size[0], self.size[1]))
+        return False
 
 
 class Gun:
 
-    def __init__(self, damage, ammo, clip_size, bullet_size=(10, 5)):
+    def __init__(self, damage, ammo, clip_size, bullet_size=(10, 5), fire_rate=15, ID=-1):
         self.ammo = ammo
         self.damage = damage
         self.clip_size = clip_size
         self.ammo_in_clip = 0
         self.bullet_size = bullet_size
+        self.fire_rate = fire_rate
         self.reload()
+        self.ID = ID
 
     def reload(self):
         if self.ammo - self.ammo_in_clip > 0:
@@ -278,80 +276,96 @@ class Gun:
     def get_bullet_size(self):
         return self.bullet_size
 
+    def get_fire_rate(self):
+        return self.fire_rate
+
 
 class Pistol(Gun):
 
     def __init__(self):
-        super().__init__((25, 30), 100, 10)
+        super().__init__((25, 30), 100, 10, ID=0)
 
 
 class MiniGun(Gun):
 
     def __init__(self):
-        super().__init__((5, 7), 1000, 100, (5, 5))
+        super().__init__((5, 7), 1000, 100, (5, 5), ID=1)
 
 
 class Player:
 
-    def __init__(self, cords, weapon, color, direction):
+    def __init__(self, cords, weapon, direction):
         self.cords = cords
         self.weapon = weapon
         self.direction = direction
-        self.bullets = []
         self.health = 100
-        self.color = color
+        self.bullet_cool_down = weapon.get_fire_rate()
         self.shooting = False
+        self.is_moving = False
+        self.starting_cords = [cords[0], cords[1]]
+        self.deaths = 0
 
     def update(self):
-        if self.weapon.is_loaded() and self.shooting:
+        if self.bullet_cool_down == 0:
+            self.bullet_cool_down = self.weapon.get_fire_rate()
+        elif self.shooting:
+            self.bullet_cool_down -= 1
+        if self.weapon.is_loaded() and self.shooting and self.bullet_cool_down == self.weapon.get_fire_rate():
             global directions
             direction = directions[self.direction]
-            self.bullets.append(Bullet([self.cords[0] + direction[0], self.cords[1] + direction[1]], self.direction,
-                                       self.weapon))
+            # print(self.cords, [self.cords[0] + direction[0], self.cords[1] + direction[1]])
+            bullets.append(Bullet([self.cords[0] + direction[0], self.cords[1] + direction[1]], self.direction,
+                                  self.weapon))
+        to_remove = []
+        for bullet in bullets:
+            if bullet.update():
+                to_remove.append(bullet)
+        for remove in to_remove:
+            bullets.remove(remove)
 
     def take_damage(self, damage):
         self.health -= damage
+        if self.health < 1:
+            self.cords = self.starting_cords
+            self.deaths += 1
+            self.health = 100
 
     def get_cords(self):
         return self.cords
 
     def move(self):
-        new_cords = [self.cords[0] + directions[self.direction][0], self.cords[1] + directions[self.direction][1]]
-        if game_map.get_map_value(new_cords) == 1:
-            self.cords = new_cords
-
-    def draw(self):
-        rect = (self.cords[0] * tile_size + 10, self.cords[1] * tile_size + 10, tile_size - 20, tile_size - 20)
-        pygame.draw.rect(screen, self.color, rect)
-        for bullet in self.bullets:
-            bullet.draw()
+        if self.is_moving:
+            new_cords = [self.cords[0] + directions[self.direction][0], self.cords[1] + directions[self.direction][1]]
+            if game_map.get_map_value(new_cords) == 1:
+                self.cords = new_cords
 
 
 class Human(Player):
 
-    def __init__(self, cords, weapon, color, direction=0):
-        super().__init__(cords, weapon, color, direction)
+    def __init__(self, cords, weapon, direction=0):
+        super().__init__(cords, weapon, direction)
 
-    def check_touch(self):
-        for key in pressed_keys:
-            if key == pygame.K_a:
-                self.direction = 0
-            if key == pygame.K_d:
-                self.direction = 1
-            if key == pygame.K_s:
-                self.direction = 2
-            if key == pygame.K_w:
-                self.direction = 3
-            if key == pygame.K_SPACE:
-                self.shooting = True
-            else:
-                self.shooting = False
+    def check_touch_down(self, key):
+        if key == pygame.K_a:
+            self.direction = 0
+            self.is_moving = True
+        if key == pygame.K_d:
+            self.direction = 1
+            self.is_moving = True
+        if key == pygame.K_s:
+            self.direction = 2
+            self.is_moving = True
+        if key == pygame.K_w:
+            self.direction = 3
+            self.is_moving = True
+        if key == pygame.K_SPACE:
+            self.shooting = True
 
-
-class Computer(Player):
-
-    def __init__(self, cords, weapon, color, direction=0):
-        super().__init__(cords, weapon, color, direction)
+    def check_touch_up(self, key):
+        if key == pygame.K_a or key == pygame.K_d or key == pygame.K_s or key == pygame.K_w:
+            self.is_moving = False
+        if key == pygame.K_SPACE:
+            self.shooting = False
 
 
 def flip_route(moves):
@@ -377,36 +391,87 @@ def read_current_scene():
             scene.append(row)
 
 
+# Their stuff
+
+def accept_incoming_connections():
+    """Sets up handling for incoming clients."""
+    while True:
+        client, client_address = SERVER.accept()
+        addresses[client] = client_address
+        Thread(target=handle_client, args=(client,)).start()
+
+
+def handle_client(client):  # Takes client socket as argument.
+    """Handles a single client connection."""
+
+    name = client.recv(BUFSIZ).decode("utf8")
+    clients[client] = name
+
+    #while True:
+    msg = client.recv(BUFSIZ)
+    if msg != bytes("{quit}", "utf8"):
+        # broadcast(msg)
+        if msg.startswith("KEYDOWN"):
+            msg = msg.split("KEY")[1]
+            client_index = find_index_of_dict(clients, client)
+            SeverAssets.players[client_index].check_touch_down(msg)
+        if msg.startswith("KEYUP"):
+            msg = msg.split("KEY")[1]
+            client_index = find_index_of_dict(clients, client)
+            SeverAssets.players[client_index].check_touch_up(msg)
+    else:
+        client.send(bytes("{quit}", "utf8"))
+        client.close()
+        del clients[client]
+        broadcast(bytes("%s has left the game." % name, "utf8"))
+        # break
+
+
+def broadcast(msg, prefix=""):  # prefix is for name identification.
+    """Broadcasts a message to all the clients."""
+
+    for sock in clients:
+        sock.send(bytes(prefix, "utf8")+msg)
+
+
+def find_index_of_dict(dict, item):
+    for item in range(len(dict.keys)):
+        if dict[dict.keys[item]] == item:
+            return item
+
+
+# My game stuff
 scene = []
 read_current_scene()
-pressed_keys = []
 game_map = Map(scene)
-players = [Human([23, 12], Pistol(), (0, 255, 0), 1), Computer([1, 12], Pistol(), (255, 0, 0), 0)]
+players = [Human([23, 12], Pistol()), Human([1, 12], Pistol())]
 tile_size = size[0] / len(scene)
 move_timer_max = 5
 move_timer = move_timer_max
-directions = [[-1, 0], [1, 0], [0, 1], [0, -1]]  # 0:Right, 1:Left, 2:Down, 3: Up
+bullets = []
+directions = [[-1, 0], [1, 0], [0, 1], [0, -1], [0, 0]]  # 0:Right, 1:Left, 2:Down, 3: Up 4: Still
 
-while playing:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.QUIT()
-            quit()
-        if event.type == pygame.KEYDOWN:
-            pressed_keys.append(event.key)
-        if event.type == pygame.KEYUP and event.key in pressed_keys:
-            pressed_keys.remove(event.key)
-    players[0].check_touch()
-    screen.fill((255, 255, 255))
-    game_map.draw()
-    for current_player in players:
-        if move_timer == 0:
-            move_timer = move_timer_max
-        if move_timer == move_timer_max:
-            current_player.move()
-        move_timer -= 1
-        current_player.draw()
-        current_player.update()
-    game_map.update()
-    pygame.display.update()
-# TODO Use code for messages
+
+# Server Stuff Mostly
+clients = {}
+addresses = {}
+
+HOST = ''
+PORT = 40
+BUFSIZ = 1024
+ADDR = (HOST, PORT)
+
+SERVER = socket(AF_INET, SOCK_STREAM)
+SERVER.bind(ADDR)
+
+
+while True:
+    for client in clients:
+        handle_client(client)
+    for player in range(len(players)):
+        broadcast("cords" + str(player) + str(players[player].cords[0]) + ":" + str(players[player].cords[1]))
+    bullet_data_to_send = "bullets" + "|"
+    for bullet in range(len(bullets)):
+        bull = bullets[bullet]
+        bullet_data_to_send += str(bull.cords[0]) + ":" + str(bull.cords[1]) + ":" +  str(bull.directions) + ":" +\
+                               str(bull.weapon.ID)
