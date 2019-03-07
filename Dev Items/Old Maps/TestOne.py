@@ -2,7 +2,6 @@ import pygame
 import time
 import math
 import random
-from PathfindingMain import Client
 
 pygame.init()
 font = pygame.font.Font('freesansbold.ttf', 15)
@@ -71,139 +70,7 @@ class Map:
                     pygame.draw.rect(screen, (84, 242, 0),
                                      (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
                                       size[0] / len(self.map), size[1] / len(self.map[0])))
-
-    def find_route(self, leaving, entering, made_moves=[], length_to_here=0, first_time=True):
-        # Setup for return
-        if first_time:
-            self.searching_for_route = True
-            leaving = [leaving[1], leaving[0]]
-            entering = [entering[1], entering[0]]
-            self.possible_map = self.copy_map(self.map)
-        can_find_route = False
-        made_moves.append(leaving)
-        new_made_moves = made_moves.copy()
-        length_to_point = length_to_here + 1
-        can_return = False
-
-        # Returns if a route has already been found
-        if not self.searching_for_route or self.possible_map[leaving[0]][leaving[1]] == 0:
-            return [False, [], -1]
-
-        # Check if at entering
-        if leaving == entering:
-            can_find_route = True
-            # self.searching_for_route = False
-            self.possible_map[leaving[0]][leaving[1]] = 2
-            can_return = True  # Don't ask why I don't just return here
-
-        # Try all moves
-        tries = []
-        if not can_return:
-            usable_cords = [[leaving[0] + 1, leaving[1]],
-                            [leaving[0] - 1, leaving[1]],
-                            [leaving[0], leaving[1] + 1],
-                            [leaving[0], leaving[1] - 1]]
-
-            # Checks all spots are on the map and not going backwards
-            cords_to_remove = []
-            for cords_index in range(len(usable_cords)):
-                cords = usable_cords[cords_index]
-                if cords in new_made_moves or len(self.map) <= cords[0] or cords[0] < 0 or len(self.map[0]) <= cords[1] or \
-                        cords[1] < 0:
-                    cords_to_remove.append(cords_index)
-
-            # Checks all spots are not walls
-            for cords_index in range(len(usable_cords)):
-                cords = usable_cords[cords_index]
-                if cords_index not in cords_to_remove and self.map[cords[0]][cords[1]] == 0:
-                    cords_to_remove.append(cords_index)
-
-            # Sort indexes to be removed
-            for index in cords_to_remove:
-                for index_index in range(len(cords_to_remove) - 1):
-                    if cords_to_remove[index_index] > cords_to_remove[index_index + 1]:
-                        temp = cords_to_remove[index_index + 1]
-                        cords_to_remove[index_index + 1] = cords_to_remove[index_index]
-                        cords_to_remove[index_index] = temp
-
-            # Removes unsuitable places
-            for cords in range(len(cords_to_remove)):
-                del usable_cords[cords_to_remove[cords] - cords]
-
-            # Determines priority
-            priority = [0, 0]
-            priority_priority = [1, 1]
-            if entering[0] < leaving[0]:
-                priority[0] = 1
-            if entering[0] > leaving[0]:
-                priority[0] = -1
-            if entering[1] < leaving[1]:
-                priority[1] = 1
-            if entering[1] < leaving[1]:
-                priority[1] = -1
-            if math.fabs(leaving[0] - entering[0]) > math.fabs(leaving[1] - entering[1]):
-                priority_priority[0] = 2
-            else:
-                priority_priority[1] = 2
-
-            # Orders usable_cords by which is more likely to get to the end
-            top_priority = []
-            second_priority = []
-            third_priority = []
-            ordered_cords = []
-            for x in priority_priority:
-                for cords in usable_cords:
-                    if (cords[0] < leaving[0] and priority[0] == -1) or (cords[0] < leaving[0] and priority[0] == 1):
-                        if priority_priority[0] == 2:
-                            top_priority.append(cords)
-                        else:
-                            second_priority.append(cords)
-                    if (cords[1] < leaving[1] and priority[1] == -1) or (cords[1] < leaving[0] and priority[1] == 1):
-                        if priority_priority[1] == 2:
-                            top_priority.append(cords)
-                        else:
-                            second_priority.append(cords)
-                    if cords[1] == leaving[1] and priority[1] == 0 or (cords[0] == leaving[0] and priority[0] == 0):
-                        third_priority.append(cords)
-            for cords in top_priority:
-                if cords not in ordered_cords:
-                    ordered_cords.append(cords)
-            for cords in second_priority:
-                if cords not in ordered_cords:
-                    ordered_cords.append(cords)
-            for cords in third_priority:
-                if cords not in ordered_cords:
-                    ordered_cords.append(cords)
-            for cords in usable_cords:
-                if cords not in ordered_cords:
-                    ordered_cords.append(cords)
-
-            # Tries all good routes and removes non-working ones
-            for cords in ordered_cords:
-                route = self.find_route(cords, entering, new_made_moves, length_to_point, first_time=False)
-                if route[0]:
-                    tries.append(route)
-
-            # Check all valid routes for shortest route if there is one
-            if len(tries) > 0:
-                can_find_route = True
-                least_moves = -1
-                least_moves_index = 0
-                for route in range(len(tries)):
-                    if tries[route][2] < tries[least_moves_index][2] or least_moves == -1:
-                        least_moves = tries[route][2]
-                        least_moves_index = route
-                for move in tries[least_moves_index][1]:
-                    new_made_moves.append(move)
-                length_to_point += tries[least_moves_index][2]
-                self.possible_map[leaving[0]][leaving[1]] = 2
-            else:
-                can_find_route = False
-                del made_moves[len(made_moves) - 1]
-                self.possible_map[leaving[0]][leaving[1]] = 0
-
-        # Return
-        return [can_find_route, new_made_moves, length_to_point]
+        pygame.display.update()
 
     def highlight_route(self, route, is_route=True):
         for row in range(len(self.map)):
@@ -337,7 +204,6 @@ class Player:
 
     def __take_damage__(self, damage):
         self.health -= damage
-        Client.send(msg="H")
         if self.health < 1:
             self.cords = self.starting_cords
             self.deaths += 1
@@ -415,7 +281,7 @@ def read_current_scene():
     # name = input("What map file do you want to load? ")
     name = ""
     if name == "":
-        name = "MultiPlayerMap"
+        name = "TestingMap"
     with open(name) as f:
         contents = f.read()
     in_list = contents.split("\n")
@@ -427,20 +293,23 @@ def read_current_scene():
             scene.append(row)
 
 
-def send_data():
-    cords = players[Client.ID].cords
-    cords = [str(cords[0]), str(cords[1])]
-    Client.send("cordsI" + Client.ID + cords[0] + ":" + cords[1])
-    Client.send("cordsB" + Client.ID + cords[0] + ":" + cords[1])
-
-
 scene = []
 read_current_scene()
 pressed_keys = []
 game_map = Map(scene)
-players = [Human([23, 12], Pistol(), 1), Dud([1, 12])]
+route = game_map.find_route([8, 44], [17, 31])
+print(route)
+game_map.highlight_route(route)
+# players = [Human([23, 12], Pistol(), 1), Dud([1, 12])]
 tile_size = size[0] / len(scene)
 move_timer_max = 5
 move_timer = move_timer_max
 directions = [[-1, 0], [1, 0], [0, 1], [0, -1], [0, 0]]  # 0:Right, 1:Left, 2:Down, 3: Up 4: Still
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            quit(0)
+    pygame.display.update()
+    time.sleep(.01)
 # TODO Use code for messages

@@ -13,8 +13,6 @@ import random
 pygame.init()
 font = pygame.font.Font('freesansbold.ttf', 15)
 size = [800, 800]
-# screen = pygame.display.set_mode(size)
-# pygame.display.set_caption("Pathfinder")
 playing = True
 
 
@@ -374,6 +372,7 @@ def handle_client(client):  # Takes client socket as argument.
 
     name = client.recv(BUFSIZ).decode("utf8")
     clients[client] = name
+    client.send(bytes("", "utf8")+bytes('ID' + str(len(clients) - 1)))
 
     while True:
         accept_incoming_connections()
@@ -413,10 +412,10 @@ def broadcast(msg, prefix=""):  # prefix is for name identification.
         sock.send(bytes(prefix, "utf8")+msg)
 
 
-def find_index_of_dict(dict, item):
-    for item in range(len(dict.keys)):
-        if dict[dict.keys[item]] == item:
-            return item
+def find_index_of_dict(dict_passed, item):
+    for i in range(len(dict_passed.keys)):
+        if dict_passed[dict_passed.keys[i]] == item:
+            return i
 
 
 # My game stuff

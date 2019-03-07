@@ -2,6 +2,8 @@
 """Script for Tkinter GUI chat client."""
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
+import pygame
+import time
 
 
 def receive():
@@ -50,9 +52,8 @@ def on_closing(event=None):
     send()
 
 
-import pygame
-
-pygame.init()
+if __name__ == "__main__":
+    pygame.init()
 font = pygame.font.Font('freesansbold.ttf', 15)
 size = [800, 800]
 screen = pygame.display.set_mode(size)
@@ -162,6 +163,15 @@ def read_current_scene():
             scene.append(row)
 
 
+def draw():
+    game_map.draw()
+    for bullet in bullets:
+        bullet.draw()
+    for player in players:
+        player.draw()
+    pygame.display.update()
+
+
 def update():
     while True:
         for event in pygame.event.get():
@@ -175,17 +185,13 @@ def update():
             if event.type == pygame.KEYDOWN:
                 key = str(event.key)
                 send(str=("KEYUP" + key))
-        game_map.draw()
-        for bullet in bullets:
-            bullet.draw()
-        for player in players:
-            player.draw()
-        pygame.display.update()
-        yield
+        # draw()
+        clock.tick(30)
 
 
 scene = []
 read_current_scene()
+clock = pygame.time.Clock()
 colors = [(255, 0, 0), (0, 255, 0)]
 tile_size = size[0] / 25
 guns = [Pistol(), MiniGun()]
@@ -207,17 +213,18 @@ ADDR = (HOST, PORT)
 client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect(ADDR)
 ID = 0
-colors = [(255, 0, 0), (0, 255, 0)]
 IDs = [0, 1]
 IDs.remove(ID)
 players = [Dud([23, 12], (0, 0, 0)), Dud([1, 12], (0, 0, 0))]
 players[ID].color = colors[1]
 players[IDs[0]].color = colors[0]
 
+
 if __name__ == "__main__":
     update_thread = Thread(target=update)
     receive_thread = Thread(target=receive)
     update_thread.start()
-    receive_thread.start()
+    update_thread.start()
     update_thread.join()
     receive_thread.join()
+
