@@ -185,8 +185,17 @@ def update():
             if event.type == pygame.KEYDOWN:
                 key = str(event.key)
                 send(str=("KEYUP" + key))
-        # draw()
         clock.tick(30)
+
+
+def main():
+    if __name__ == "__main__":
+        update_thread = Thread(target=update)
+        receive_thread = Thread(target=receive)
+        update_thread.start()
+        update_thread.start()
+        update_thread.join()
+        receive_thread.join()
 
 
 scene = []
@@ -220,11 +229,4 @@ players[ID].color = colors[1]
 players[IDs[0]].color = colors[0]
 
 
-if __name__ == "__main__":
-    update_thread = Thread(target=update)
-    receive_thread = Thread(target=receive)
-    update_thread.start()
-    update_thread.start()
-    update_thread.join()
-    receive_thread.join()
-
+main()

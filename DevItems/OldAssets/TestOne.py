@@ -2,6 +2,7 @@ import pygame
 import time
 import math
 import random
+from PathfindingMain.DevItems.OldAssets import RouteFinder
 
 pygame.init()
 font = pygame.font.Font('freesansbold.ttf', 15)
@@ -193,14 +194,8 @@ class Player:
             global directions
             direction = directions[self.direction]
             print(self.cords, [self.cords[0] + direction[0], self.cords[1] + direction[1]])
-            self.bullets.append(Bullet([self.cords[0] + direction[0], self.cords[1] + direction[1]], self.direction,
-                                       self.weapon))
-        to_remove = []
-        for bullet in self.bullets:
-            if bullet.update():
-                to_remove.append(bullet)
-        for remove in to_remove:
-            self.bullets.remove(remove)
+            bullets.append(Bullet([self.cords[0] + direction[0], self.cords[1] + direction[1]], self.direction,
+                                  self.weapon))
 
     def __take_damage__(self, damage):
         self.health -= damage
@@ -253,21 +248,17 @@ class Human(Player):
                 self.shooting = False
 
 
-class Dud:
+class Computer(Player):
 
-    def __init__(self, cords, color):
-        self.__cords__ = cords
-        self.color = color
-        self.cords = cords
+    def __init__(self, cords, weapon, color=(255, 0, 0), direction=0):
+        super().__init__(cords, weapon, color, direction)
 
-    def set_cords(self, cords):
-        self.cords = cords
-
-    def draw(self):
-        rect = (self.cords[0] * tile_size + 10, self.cords[1] * tile_size + 10, tile_size - 20, tile_size - 20)
-        pygame.draw.rect(screen, self.color, rect)
-        for bullet in self.bullets:
-            bullet.draw()
+    def move(self):
+        if self.cords != players[0].cords:
+            path = RouteFinder.find_route(scene, self.cords, players[0].cords)
+            if path:
+                before_cords = path.pop(1)
+                self.cords = [before_cords[1], before_cords[0]]
 
 
 def flip_route(moves):
@@ -278,10 +269,7 @@ def flip_route(moves):
 
 
 def read_current_scene():
-    # name = input("What map file do you want to load? ")
-    name = ""
-    if name == "":
-        name = "TestingMap"
+    name = "MultiPlayerMap"
     with open(name) as f:
         contents = f.read()
     in_list = contents.split("\n")
@@ -293,16 +281,32 @@ def read_current_scene():
             scene.append(row)
 
 
+def draw():
+    game_map.draw()
+    for player in players:
+        player.draw()
+    for bullet in bullets:
+        bullet.draw()
+
+
+def update_bullets():
+    to_remove = []
+    for bullet in bullets:
+        if bullet.update():
+            to_remove.append(bullet)
+
+    for remove in to_remove:
+        bullets.remove(remove)
+
+
 scene = []
 read_current_scene()
 pressed_keys = []
+bullets = []
 game_map = Map(scene)
-route = game_map.find_route([8, 44], [17, 31])
-print(route)
-game_map.highlight_route(route)
-# players = [Human([23, 12], Pistol(), 1), Dud([1, 12])]
+players = [Human([23, 12], Pistol(), direction=1), Computer([1, 12], Pistol(), direction=2)]
 tile_size = size[0] / len(scene)
-move_timer_max = 5
+move_timer_max = 4
 move_timer = move_timer_max
 directions = [[-1, 0], [1, 0], [0, 1], [0, -1], [0, 0]]  # 0:Right, 1:Left, 2:Down, 3: Up 4: Still
 while True:
@@ -310,6 +314,13 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             quit(0)
+        players[0].check_touch(event)
+    for player in range(len(players)):
+        players[player].update()
+        if move_timer == 0 or move_timer_max == move_timer:
+            move_timer = move_timer_max
+            players[player].move()
+    move_timer -= 1
+    draw()
     pygame.display.update()
     time.sleep(.01)
-# TODO Use code for messages
