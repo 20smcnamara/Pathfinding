@@ -2,12 +2,10 @@
 """Server for multithreaded (asynchronous) chat application."""
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
-# from PathfindingMain import SeverAssets
-
+from PathfindingMain.DevItems.Assets.Maps.SceneReader import read_current_scene
 
 # My Stuff
 import pygame
-import math
 import random
 
 pygame.init()
@@ -43,140 +41,6 @@ class Map:
                 new_row.append(place)
             new_map.append(new_row)
         return new_map
-
-    def find_route(self, leaving, entering, made_moves=[], length_to_here=0, first_time=True):
-        # Setup for return
-        if first_time:
-            self.searching_for_route = True
-            leaving = [leaving[1], leaving[0]]
-            entering = [entering[1], entering[0]]
-            self.possible_map = self.copy_map(self.map)
-        can_find_route = False
-        made_moves.append(leaving)
-        new_made_moves = made_moves.copy()
-        length_to_point = length_to_here + 1
-        can_return = False
-
-        # Returns if a route has already been found
-        if not self.searching_for_route or self.possible_map[leaving[0]][leaving[1]] == 0:
-            return [False, [], -1]
-
-        # Check if at entering
-        if leaving == entering:
-            can_find_route = True
-            # self.searching_for_route = False
-            self.possible_map[leaving[0]][leaving[1]] = 2
-            can_return = True  # Don't ask why I don't just return here
-
-        # Try all moves
-        tries = []
-        if not can_return:
-            usable_cords = [[leaving[0] + 1, leaving[1]],
-                            [leaving[0] - 1, leaving[1]],
-                            [leaving[0], leaving[1] + 1],
-                            [leaving[0], leaving[1] - 1]]
-
-            # Checks all spots are on the map and not going backwards
-            cords_to_remove = []
-            for cords_index in range(len(usable_cords)):
-                cords = usable_cords[cords_index]
-                if cords in new_made_moves or len(self.map) <= cords[0] or cords[0] < 0 or len(self.map[0]) <= cords[
-                    1] or \
-                        cords[1] < 0:
-                    cords_to_remove.append(cords_index)
-
-            # Checks all spots are not walls
-            for cords_index in range(len(usable_cords)):
-                cords = usable_cords[cords_index]
-                if cords_index not in cords_to_remove and self.map[cords[0]][cords[1]] == 0:
-                    cords_to_remove.append(cords_index)
-
-            # Sort indexes to be removed
-            for index in cords_to_remove:
-                for index_index in range(len(cords_to_remove) - 1):
-                    if cords_to_remove[index_index] > cords_to_remove[index_index + 1]:
-                        temp = cords_to_remove[index_index + 1]
-                        cords_to_remove[index_index + 1] = cords_to_remove[index_index]
-                        cords_to_remove[index_index] = temp
-
-            # Removes unsuitable places
-            for cords in range(len(cords_to_remove)):
-                del usable_cords[cords_to_remove[cords] - cords]
-
-            # Determines priority
-            priority = [0, 0]
-            priority_priority = [1, 1]
-            if entering[0] < leaving[0]:
-                priority[0] = 1
-            if entering[0] > leaving[0]:
-                priority[0] = -1
-            if entering[1] < leaving[1]:
-                priority[1] = 1
-            if entering[1] < leaving[1]:
-                priority[1] = -1
-            if math.fabs(leaving[0] - entering[0]) > math.fabs(leaving[1] - entering[1]):
-                priority_priority[0] = 2
-            else:
-                priority_priority[1] = 2
-
-            # Orders usable_cords by which is more likely to get to the end
-            top_priority = []
-            second_priority = []
-            third_priority = []
-            ordered_cords = []
-            for x in priority_priority:
-                for cords in usable_cords:
-                    if (cords[0] < leaving[0] and priority[0] == -1) or (cords[0] < leaving[0] and priority[0] == 1):
-                        if priority_priority[0] == 2:
-                            top_priority.append(cords)
-                        else:
-                            second_priority.append(cords)
-                    if (cords[1] < leaving[1] and priority[1] == -1) or (cords[1] < leaving[0] and priority[1] == 1):
-                        if priority_priority[1] == 2:
-                            top_priority.append(cords)
-                        else:
-                            second_priority.append(cords)
-                    if cords[1] == leaving[1] and priority[1] == 0 or (cords[0] == leaving[0] and priority[0] == 0):
-                        third_priority.append(cords)
-            for cords in top_priority:
-                if cords not in ordered_cords:
-                    ordered_cords.append(cords)
-            for cords in second_priority:
-                if cords not in ordered_cords:
-                    ordered_cords.append(cords)
-            for cords in third_priority:
-                if cords not in ordered_cords:
-                    ordered_cords.append(cords)
-            for cords in usable_cords:
-                if cords not in ordered_cords:
-                    ordered_cords.append(cords)
-
-            # Tries all good routes and removes non-working ones
-            for cords in ordered_cords:
-                route = self.find_route(cords, entering, new_made_moves, length_to_point, first_time=False)
-                if route[0]:
-                    tries.append(route)
-
-            # Check all valid routes for shortest route if there is one
-            if len(tries) > 0:
-                can_find_route = True
-                least_moves = -1
-                least_moves_index = 0
-                for route in range(len(tries)):
-                    if tries[route][2] < tries[least_moves_index][2] or least_moves == -1:
-                        least_moves = tries[route][2]
-                        least_moves_index = route
-                for move in tries[least_moves_index][1]:
-                    new_made_moves.append(move)
-                length_to_point += tries[least_moves_index][2]
-                self.possible_map[leaving[0]][leaving[1]] = 2
-            else:
-                can_find_route = False
-                del made_moves[len(made_moves) - 1]
-                self.possible_map[leaving[0]][leaving[1]] = 0
-
-        # Return
-        return [can_find_route, new_made_moves, length_to_point]
 
     def to_string(self):
         for row in self.map:
@@ -341,22 +205,6 @@ def flip_route(moves):
     return [moves[0], new_moves, moves[2]]
 
 
-def read_current_scene():
-    # name = input("What map file do you want to load? ")
-    name = ""
-    if name == "":
-        name = "MultiPlayerMap"
-    with open(name) as f:
-        contents = f.read()
-    in_list = contents.split("\n")
-    for line in in_list:
-        row = []
-        for status in line:
-            row.append(int(status))
-        if row:
-            scene.append(row)
-
-
 # Their stuff
 
 def accept_incoming_connections():
@@ -372,12 +220,12 @@ def handle_client(client):  # Takes client socket as argument.
 
     name = client.recv(BUFSIZ).decode("utf8")
     clients[client] = name
-    client.send(bytes("", "utf8")+bytes('ID' + str(len(clients) - 1)))
+    client.send(bytes("", "utf8")+bytes('ID' + str(len(clients) - 1), "utf8"))
 
     while True:
-        accept_incoming_connections()
-        for client in clients:
-            handle_client(client)
+        # accept_incoming_connections()
+        # for client in clients:
+            # handle_client(client)
         for player in range(len(players)):
             broadcast("cords" + str(player) + str(players[player].cords[0]) + ":" + str(players[player].cords[1]))
         bullet_data_to_send = "bullets" + "|"
@@ -389,12 +237,13 @@ def handle_client(client):  # Takes client socket as argument.
         msg = client.recv(BUFSIZ)
         if msg != bytes("{quit}", "utf8"):
             # broadcast(msg)
+            msg = str(msg)
             if msg.startswith("KEYDOWN"):
-                msg = msg.split("KEY")[1]
+                msg = msg.split("KEYDOWN")[1]
                 client_index = find_index_of_dict(clients, client)
                 players[client_index].check_touch_down(msg)
             if msg.startswith("KEYUP"):
-                msg = msg.split("KEY")[1]
+                msg = msg.split("KEYUP")[1]
                 client_index = find_index_of_dict(clients, client)
                 players[client_index].check_touch_up(msg)
         else:
@@ -409,7 +258,7 @@ def broadcast(msg, prefix=""):  # prefix is for name identification.
     """Broadcasts a message to all the clients."""
 
     for sock in clients:
-        sock.send(bytes(prefix, "utf8")+msg)
+        sock.send(bytes(prefix, "utf8") + bytes(msg, "utf8"))
 
 
 def find_index_of_dict(dict_passed, item):
@@ -418,9 +267,13 @@ def find_index_of_dict(dict_passed, item):
             return i
 
 
+def prep_to_stop():
+    input()
+    SERVER.close()
+
+
 # My game stuff
-scene = []
-read_current_scene()
+scene = read_current_scene(name="MultiPlayerMap")
 game_map = Map(scene)
 players = [Human([23, 12], Pistol()), Human([1, 12], Pistol())]
 tile_size = size[0] / len(scene)
@@ -435,7 +288,7 @@ clients = {}
 addresses = {}
 
 HOST = ''
-PORT = 8443
+PORT = 33000  # 8443
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
 
@@ -443,9 +296,12 @@ SERVER = socket(AF_INET, SOCK_STREAM)
 SERVER.bind(ADDR)
 
 if __name__ == "__main__":
+    print("Started")
     SERVER.listen(5)
+    QUIT = Thread(target=prep_to_stop)
     ACCEPT_THREAD = Thread(target=accept_incoming_connections)
     ACCEPT_THREAD.start()
+    QUIT.start()
     ACCEPT_THREAD.join()
-    print("END")
+    QUIT.join()
     SERVER.close()

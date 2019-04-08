@@ -4,6 +4,7 @@ from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 import pygame
 import time
+import runtime
 
 
 def receive():
@@ -50,15 +51,6 @@ def on_closing(event=None):
     """This function is to be called when the window is closed."""
     # my_msg.set("{quit}")
     send()
-
-
-if __name__ == "__main__":
-    pygame.init()
-font = pygame.font.Font('freesansbold.ttf', 15)
-size = [800, 800]
-screen = pygame.display.set_mode(size)
-pygame.display.set_caption("Pathfinder")
-playing = True
 
 
 class Map:
@@ -164,69 +156,68 @@ def read_current_scene():
 
 
 def draw():
-    game_map.draw()
-    for bullet in bullets:
-        bullet.draw()
-    for player in players:
-        player.draw()
-    pygame.display.update()
+    while True:
+        game_map.draw()
+        for bullet in bullets:
+            bullet.draw()
+        for player in players:
+            player.draw()
+        pygame.display.update()
+        clock.tick(30)
 
 
 def update():
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                send(str="{quit}")
-                quit()
             if event.type == pygame.KEYDOWN:
                 key = str(event.key)
                 send(str=("KEYDOWN" + key))
             if event.type == pygame.KEYDOWN:
                 key = str(event.key)
                 send(str=("KEYUP" + key))
-        clock.tick(30)
 
 
-def main():
-    if __name__ == "__main__":
-        update_thread = Thread(target=update)
-        receive_thread = Thread(target=receive)
-        update_thread.start()
-        update_thread.start()
-        update_thread.join()
-        receive_thread.join()
+if __name__ == "__main__":
+    print("Yes")
+    pygame.init()
+    font = pygame.font.Font('freesansbold.ttf', 15)
+    size = [800, 800]
+    screen = pygame.display.set_mode(size)
+    pygame.display.set_caption("Pathfinder")
+    playing = True
+    scene = []
+    read_current_scene()
+    clock = pygame.time.Clock()
+    colors = [(255, 0, 0), (0, 255, 0)]
+    tile_size = size[0] / 25
+    guns = [Pistol(), MiniGun()]
+    directions = [[-1, 0], [1, 0], [0, 1], [0, -1], [0, 0]]  # 0:Right, 1:Left, 2:Down, 3: Up 4: Still
 
 
-scene = []
-read_current_scene()
-clock = pygame.time.Clock()
-colors = [(255, 0, 0), (0, 255, 0)]
-tile_size = size[0] / 25
-guns = [Pistol(), MiniGun()]
-directions = [[-1, 0], [1, 0], [0, 1], [0, -1], [0, 0]]  # 0:Right, 1:Left, 2:Down, 3: Up 4: Still
+
+    # My stuff
+    game_map = Map()
+    bullets = []
+
+    # ----Now comes the sockets part----
+    HOST = ''  # input('Enter host: ')
+    PORT = 33000  # 8443   # input('Enter port: ')
 
 
-# My stuff
-game_map = Map()
-bullets = []
+    BUFSIZ = 1024
+    ADDR = (HOST, PORT)
 
-# ----Now comes the sockets part----
-HOST = ''  # input('Enter host: ')
-PORT = 8443   # input('Enter port: ')
+    client_socket = socket(AF_INET, SOCK_STREAM)
+    client_socket.connect(ADDR)
+    ID = 0
+    IDs = [0, 1]
+    IDs.remove(ID)
+    players = [Dud([23, 12], (0, 0, 0)), Dud([1, 12], (0, 0, 0))]
+    players[ID].color = colors[1]
+    players[IDs[0]].color = colors[0]
 
-
-BUFSIZ = 1024
-ADDR = (HOST, PORT)
-
-client_socket = socket(AF_INET, SOCK_STREAM)
-client_socket.connect(ADDR)
-ID = 0
-IDs = [0, 1]
-IDs.remove(ID)
-players = [Dud([23, 12], (0, 0, 0)), Dud([1, 12], (0, 0, 0))]
-players[ID].color = colors[1]
-players[IDs[0]].color = colors[0]
-
-
-main()
+    receiver = Thread(target=receive).start()
+    draw_thread = Thread(target=draw).start()
+    event_handling = Thread(target=update).start()
+else:
+    print("No")

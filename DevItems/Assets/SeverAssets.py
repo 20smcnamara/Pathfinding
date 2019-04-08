@@ -1,8 +1,6 @@
 import pygame
-import time
 import math
 import random
-from PathfindingMain import Client
 
 pygame.init()
 font = pygame.font.Font('freesansbold.ttf', 15)

@@ -126,7 +126,7 @@ def find_route(maze, start, end, allow_diagonal_movement=False):
                     len(maze[len(maze) - 1]) - 1) or node_position[1] < 0:
                 continue
 
-            if maze[node_position[0]][node_position[1]] == 0:
+            if maze[node_position[0]][node_position[1]] == 0 or maze[node_position[0]][node_position[1]] == 2:
                 continue
 
             new_node = Node(current_node, node_position)
@@ -153,19 +153,6 @@ def find_route(maze, start, end, allow_diagonal_movement=False):
             open_list.append(child)
 
 
-def read_current_scene():
-    name = "TestingMap"
-    with open(name) as f:
-        contents = f.read()
-    in_list = contents.split("\n")
-    for line in in_list:
-        row = []
-        for status in line:
-            row.append(int(status))
-        if row:
-            scene.append(row)
-
-
 pygame.init()
 font = pygame.font.Font('freesansbold.ttf', 15)
 size = [800, 800]
@@ -173,16 +160,7 @@ screen = pygame.display.set_mode(size)
 pygame.display.set_caption("Pathfinder")
 playing = True
 scene = []
-read_current_scene()
 game_map = Map(scene)
 found_route = find_route(scene, (7, 44), (17, 31))
 print(found_route)
 game_map.highlight_route(found_route, is_route=False)
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            quit(0)
-    game_map.update()
-    game_map.draw()
-    pygame.display.update()

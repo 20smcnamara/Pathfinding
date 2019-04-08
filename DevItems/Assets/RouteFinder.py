@@ -1,3 +1,6 @@
+import time
+
+
 class Node:
 
     def __init__(self, parent=None, position=None):
@@ -11,7 +14,8 @@ class Node:
         return self.position == other.position
 
 
-def find_route(maze, start, end, allow_diagonal_movement=False):
+def find_route(maze, start, end, allow_diagonal_movement=False, bad_node_cords=[]):
+    start_time = time.time()
     start_node = Node(None, (start[1], start[0]))
     start_node.g = start_node.h = start_node.f = 0
     end_node = Node(None, (end[1], end[0]))
@@ -27,6 +31,8 @@ def find_route(maze, start, end, allow_diagonal_movement=False):
         adjacent_squares = ((0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1),)
 
     while len(open_list) > 0:
+        if time.time() - start_time > 1:
+            return start
 
         current_node = open_list[0]
         current_index = 0
@@ -55,7 +61,8 @@ def find_route(maze, start, end, allow_diagonal_movement=False):
                     len(maze[len(maze) - 1]) - 1) or node_position[1] < 0:
                 continue
 
-            if maze[node_position[0]][node_position[1]] == 0:
+            if maze[node_position[0]][node_position[1]] == 0 or maze[node_position[0]][node_position[1]] == 2 or \
+                    node_position in bad_node_cords:
                 continue
 
             new_node = Node(current_node, node_position)
@@ -63,6 +70,7 @@ def find_route(maze, start, end, allow_diagonal_movement=False):
             children.append(new_node)
 
         for child in children:
+            # print("Loop")
             if len([closed_child for closed_child in closed_list if closed_child == child]) > 0:
                 continue
 

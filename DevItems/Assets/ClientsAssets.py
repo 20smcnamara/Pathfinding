@@ -1,5 +1,6 @@
 import pygame
-from PathfindingMain import Client
+from PathfindingMain.DevItems.Multiplayer import Client
+from PathfindingMain.DevItems.Assets.Maps.SceneReader import read_current_scene
 
 pygame.init()
 font = pygame.font.Font('freesansbold.ttf', 15)
@@ -98,19 +99,6 @@ class Dud:
         pygame.draw.rect(screen, self.color, rect)
 
 
-def read_current_scene():
-    name = "MultiPlayerMap"
-    with open(name) as f:
-        contents = f.read()
-    in_list = contents.split("\n")
-    for line in in_list:
-        row = []
-        for status in line:
-            row.append(int(status))
-        if row:
-            scene.append(row)
-
-
 def update():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -130,8 +118,7 @@ def update():
         player.draw()
 
 
-scene = []
-read_current_scene()
+scene = read_current_scene(name="MultiPlayerMap")
 colors = [(255, 0, 0), (0, 255, 0)]
 tile_size = size[0] / 25
 guns = [Pistol(), MiniGun()]

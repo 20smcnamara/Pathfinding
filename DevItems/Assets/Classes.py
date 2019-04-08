@@ -1,15 +1,30 @@
-import pygame
 import time
-import math
+import pygame
 import random
-from PathfindingMain.DevItems.OldAssets import RouteFinder
+from PathfindingMain.DevItems.Assets import RouteFinder
 
-pygame.init()
-font = pygame.font.Font('freesansbold.ttf', 15)
-size = [800, 800]
-screen = pygame.display.set_mode(size)
-pygame.display.set_caption("Pathfinder")
-playing = True
+
+tile_size = None
+size = None
+game_map = None
+players = None
+screen = None
+bullets = None
+rects_to_update = None
+scene = None
+
+
+def setup(passed_tile_size, passed_size, passed_game_map, passed_players, passed_screen, passed_bullets,
+          passed_rects_to_update, passed_scene):
+    global tile_size, size, game_map, players, screen, bullets, rects_to_update, scene
+    tile_size = passed_tile_size
+    size = passed_size
+    game_map = passed_game_map
+    players = passed_players
+    screen = passed_screen
+    bullets = passed_bullets
+    rects_to_update = passed_rects_to_update
+    scene = passed_scene
 
 
 class Map:
@@ -56,7 +71,7 @@ class Map:
                                      (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
                                       size[0] / len(self.map), size[1] / len(self.map[0])))
                 elif self.highlighted_map[row][col] == 2:
-                    pygame.draw.rect(screen, (0, 255, 161),
+                    pygame.draw.rect(screen, (15, 75, 15),
                                      (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
                                       size[0] / len(self.map), size[1] / len(self.map[0])))
                 elif self.highlighted_map[row][col] == 3:
@@ -108,8 +123,11 @@ class Bullet:
         if direction > 1:
             self.size = [self.size[1], self.size[0]]
         self.direction = direction
+        self.weapon = weapon
 
     def update(self):
+        if game_map.get_map_value(self.cords) == 0:
+            return True
         if self.cool_down == 0:
             self.cool_down = self.max_cool_down
         if self.max_cool_down == self.cool_down:
@@ -123,9 +141,7 @@ class Bullet:
         return False
 
     def draw(self):
-        x = self.cords[0] * tile_size + tile_size / 2 - self.size[0] / 2
-        y = self.cords[1] * tile_size + tile_size / 2 - self.size[1] / 2
-        pygame.draw.rect(screen, (255, 25, 25), (x, y, self.size[0], self.size[1]))
+        self.weapon.draw_bullet(self.cords)
 
 
 class Gun:
@@ -138,10 +154,11 @@ class Gun:
         self.bullet_size = bullet_size
         self.fire_rate = fire_rate
         self.reload()
+        self.last_show_time = time.time()
 
     def reload(self):
         if self.ammo - self.ammo_in_clip > 0:
-            while self.ammo > 0 and self.ammo_in_clip < self.clip_size:
+            while self.ammo > 0 and self.ammo_in_clip <= self.clip_size:
                 self.ammo_in_clip += 1
                 self.ammo -= 1
 
@@ -149,7 +166,7 @@ class Gun:
         return random.randint(self.damage[0], self.damage[1])
 
     def is_loaded(self):
-        return self.ammo_in_clip > 0
+        return self.ammo_in_clip > 0 or self.ammo_in_clip == self.clip_size
 
     def get_bullet_size(self):
         return self.bullet_size
@@ -157,17 +174,34 @@ class Gun:
     def get_fire_rate(self):
         return self.fire_rate
 
+    def draw_bullet(self, cords):
+        x = cords[0] * tile_size + tile_size / 2 - self.bullet_size[0] / 2
+        y = cords[1] * tile_size + tile_size / 2 - self.bullet_size[1] / 2
+        pygame.draw.rect(screen, (255, 25, 25), (x, y, self.bullet_size[0], self.bullet_size[1]))
+
 
 class Pistol(Gun):
 
     def __init__(self):
-        super().__init__((25, 30), 100, 10)
+        super().__init__((45, 62), 100, 3)
+
+
+class Smg(Gun):
+
+    def __init__(self):
+        super().__init__((45, 65), 5, 5)
 
 
 class MiniGun(Gun):
 
     def __init__(self):
-        super().__init__((5, 7), 1000, 100, (5, 5))
+        super().__init__((5, 7), 1000, 100, (5, 5), 1)
+
+
+class Melee(Gun):
+
+    def __init__(self):
+        super().__init__((35, 45), 10000000, 10000000, (0, 0), 1)
 
 
 class Player:
@@ -184,20 +218,22 @@ class Player:
         self.is_moving = False
         self.starting_cords = [cords[0], cords[1]]
         self.deaths = 0
+        self.id = -1
+        self.last_rect = None
+        self.rect = None
+
+    def first_load(self):
+        self.rect = (self.cords[0] * tile_size + 10, self.cords[1] * tile_size + 10, tile_size - 20, tile_size - 20)
 
     def update(self):
-        if self.bullet_cool_down == 0:
-            self.bullet_cool_down = self.weapon.get_fire_rate()
-        elif self.shooting:
-            self.bullet_cool_down -= 1
-        if self.weapon.is_loaded() and self.shooting and self.bullet_cool_down == self.weapon.get_fire_rate():
+        if self.weapon.is_loaded() and self.shooting:
             global directions
             direction = directions[self.direction]
-            print(self.cords, [self.cords[0] + direction[0], self.cords[1] + direction[1]])
             bullets.append(Bullet([self.cords[0] + direction[0], self.cords[1] + direction[1]], self.direction,
                                   self.weapon))
+            self.weapon.ammo -= 1
 
-    def __take_damage__(self, damage):
+    def take_damage(self, damage):
         self.health -= damage
         if self.health < 1:
             self.cords = self.starting_cords
@@ -210,12 +246,22 @@ class Player:
     def move(self):
         if self.is_moving:
             new_cords = [self.cords[0] + directions[self.direction][0], self.cords[1] + directions[self.direction][1]]
-            if game_map.get_map_value(new_cords) == 1:
+            if game_map.get_map_value(new_cords) != 0:
                 self.cords = new_cords
+        self.last_rect = self.rect
+        self.rect = (self.cords[0] * tile_size + 10, self.cords[1] * tile_size + 10, tile_size - 20, tile_size - 20)
 
     def draw(self):
+        if self.id == -1:
+            for index, player in enumerate(players):
+                if player == self:
+                    self.id = index
+                    break
+
         rect = (self.cords[0] * tile_size + 10, self.cords[1] * tile_size + 10, tile_size - 20, tile_size - 20)
         pygame.draw.rect(screen, self.color, rect)
+        rects_to_update.append(self.last_rect)
+        rects_to_update.append(self.rect)
         for bullet in self.bullets:
             bullet.draw()
 
@@ -224,103 +270,80 @@ class Human(Player):
 
     def __init__(self, cords, weapon, color=(0, 255, 0), direction=0):
         super().__init__(cords, weapon, color, direction)
+        self.keys_pressed = []
 
     def check_touch(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_a:
-                self.direction = 0
-                self.is_moving = True
+                self.keys_pressed.append(0)
+                #if self.keys_pressed.count(1) > 0:
+                #    self.keys_pressed.remove(1)
             if event.key == pygame.K_d:
-                self.direction = 1
-                self.is_moving = True
+                self.keys_pressed.append(1)
+                #if self.keys_pressed.count(0) > 0:
+                #    self.keys_pressed.remove(0)
             if event.key == pygame.K_s:
-                self.direction = 2
-                self.is_moving = True
+                self.keys_pressed.append(2)
+                #if self.keys_pressed.count(3) > 0:
+                #    self.keys_pressed.remove(3)
             if event.key == pygame.K_w:
-                self.direction = 3
-                self.is_moving = True
+                self.keys_pressed.append(3)
+                #if self.keys_pressed.count(2) > 0:
+                #    self.keys_pressed.remove(2)
             if event.key == pygame.K_SPACE:
                 self.shooting = True
+            if event.key == pygame.K_LSHIFT:
+                global running
+                running = True
+            if event.key == pygame.K_r:
+                self.weapon.reload()
         if event.type == pygame.KEYUP:
-            if event.key == pygame.K_a or event.key == pygame.K_d or event.key == pygame.K_s or event.key == pygame.K_w:
-                self.is_moving = False
+            if event.key == pygame.K_a and self.keys_pressed.count(0) > 0:
+                self.keys_pressed.remove(0)
+            if event.key == pygame.K_d and self.keys_pressed.count(1) > 0:
+                self.keys_pressed.remove(1)
+            if event.key == pygame.K_s and self.keys_pressed.count(2) > 0:
+                self.keys_pressed.remove(2)
+            if event.key == pygame.K_w and self.keys_pressed.count(3) > 0:
+                self.keys_pressed.remove(3)
             if event.key == pygame.K_SPACE:
                 self.shooting = False
+        if len(self.keys_pressed) > 0:
+            self.is_moving = True
+            self.direction = self.keys_pressed[len(self.keys_pressed) - 1]
+        else:
+            self.is_moving = False
 
 
 class Computer(Player):
 
-    def __init__(self, cords, weapon, color=(255, 0, 0), direction=0):
-        super().__init__(cords, weapon, color, direction)
+    def __init__(self, cords, attack_weapon=Melee(), color=(255, 0, 0), direction=0, damage=(35, 45)):
+        super().__init__(cords, attack_weapon, color, direction)
+        self.damage = damage
 
     def move(self):
         if self.cords != players[0].cords:
-            path = RouteFinder.find_route(scene, self.cords, players[0].cords)
+            bad_cords = []
+            for index, cords in enumerate(players):
+                if index != 0:
+                    bad_cords.append(cords.cords)
+            for index, cords in enumerate(bad_cords):
+                bad_cords[index] = [
+                    cords[1],
+                                    cords[0]]
+            path = RouteFinder.find_route(scene, self.cords, players[0].cords, bad_node_cords=bad_cords)
             if path:
-                before_cords = path.pop(1)
-                self.cords = [before_cords[1], before_cords[0]]
+                try:
+                    before_cords = path.pop(1)
+                    self.cords = [before_cords[1], before_cords[0]]
+                except TypeError:
+                    print("uh")
+        try:
+            self.last_rect = self.rect
+            self.rect = (self.cords[0] * tile_size + 10, self.cords[1] * tile_size + 10, tile_size - 20, tile_size - 20)
+        except IndexError:
+            print("oh")
 
-
-def flip_route(moves):
-    new_moves = []
-    for move in moves[1]:
-        new_moves.append([move[1], move[0]])
-    return [moves[0], new_moves, moves[2]]
-
-
-def read_current_scene():
-    name = "MultiPlayerMap"
-    with open(name) as f:
-        contents = f.read()
-    in_list = contents.split("\n")
-    for line in in_list:
-        row = []
-        for status in line:
-            row.append(int(status))
-        if row:
-            scene.append(row)
-
-
-def draw():
-    game_map.draw()
-    for player in players:
-        player.draw()
-    for bullet in bullets:
-        bullet.draw()
-
-
-def update_bullets():
-    to_remove = []
-    for bullet in bullets:
-        if bullet.update():
-            to_remove.append(bullet)
-
-    for remove in to_remove:
-        bullets.remove(remove)
-
-
-scene = []
-read_current_scene()
-pressed_keys = []
-bullets = []
-game_map = Map(scene)
-players = [Human([23, 12], Pistol(), direction=1), Computer([1, 12], Pistol(), direction=2)]
-tile_size = size[0] / len(scene)
-move_timer_max = 4
-move_timer = move_timer_max
-directions = [[-1, 0], [1, 0], [0, 1], [0, -1], [0, 0]]  # 0:Right, 1:Left, 2:Down, 3: Up 4: Still
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            quit(0)
-        players[0].check_touch(event)
-    for player in range(len(players)):
-        players[player].update()
-        if move_timer == 0 or move_timer_max == move_timer:
-            move_timer = move_timer_max
-            players[player].move()
-    move_timer -= 1
-    draw()
-    pygame.display.update()
-    time.sleep(.01)
+    def update(self):
+        if self.cords == players[0].cords:
+            players[0].take_damage(random.randint(self.damage[0], self.damage[1]))
