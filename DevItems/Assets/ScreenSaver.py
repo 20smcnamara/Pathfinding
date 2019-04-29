@@ -5,6 +5,37 @@ import math
 from PathfindingMain.DevItems.Assets.Maps.SceneReader import read_current_scene
 
 
+class Button:
+
+    def __init__(self, cords, size, string="Start", colors=[(125, 0, 0), (255, 125, 125)]):
+        self.cords = cords
+        self.size = size
+        self.string = string
+        self.colors = colors
+
+    def update(self):
+        pressed = pygame.mouse.get_pressed()
+        if pressed[0] == 1:
+            pos = pygame.mouse.get_pos()
+            if self.cords[0] - self.size[0] / 2 <= pos[0] <= self.cords[0] + self.size[0] / 2:
+                if self.cords[1] - self.size[1] / 2 <= pos[1] <= self.cords[1] + self.size[1] / 2:
+                    return True
+        return False
+
+    def draw(self):
+        color = self.colors[0]
+        pos = pygame.mouse.get_pos()
+        if self.cords[0] - self.size[0] / 2 <= pos[0] <= self.cords[0] + self.size[0] / 2:
+            if self.cords[1] - self.size[1] / 2 <= pos[1] <= self.cords[1] + self.size[1] / 2:
+                color = self.colors[1]
+        pygame.draw.rect(screen, color,
+                         (int(self.cords[0] - self.size[0] / 2), int(self.cords[1] - self.size[1] / 2), self.size[0],
+                          self.size[1]))
+        text = pygame.font.Font.render(font, self.string, True, (0, 0, 0))
+        screen.blit(text, (self.cords[0] - font.size(self.string)[0] / 2, self.cords[1] - self.size[1] / 6
+                           - font.size(self.string)[1] / 2))
+
+
 class Map:
 
     def __init__(self, scene):
@@ -19,13 +50,10 @@ class Map:
                     self.walls.append([y, x])
 
     def get_map_value(self, cords):
+        print(cords)
         return self.map[cords[0]][cords[1]]
 
     def draw(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit(0)
         for row in range(len(self.map)):
             for col in range(len(self.map[row])):
                 if self.map[row][col] == 0:
@@ -99,7 +127,7 @@ class Pistol(Gun):
 class MiniGun(Gun):
 
     def __init__(self):
-        super().__init__([5, 7], 10000, 1000, fire_rate=1)
+        super().__init__([5, 7], 10000, 1000, fire_rate=3)
 
 
 class Bullet:
@@ -141,30 +169,115 @@ class Bullet:
         return False
 
     def check_organism_collision(self):
-        rects = [pygame.Rect(self.cords[0] + self.size, self.cords[1], 5, self.size * 2),
-                 pygame.Rect(self.cords[0] + self.size, self.cords[1], self.size * 2, 5),
-                 pygame.Rect(self.cords[0] + self.size / 2, self.cords[1] + self.size / 2, 3, 3),
-                 pygame.Rect(self.cords[0] + self.size / 2 * 3, self.cords[1] + self.size / 2, 3, 3),
-                 pygame.Rect(self.cords[0] + self.size / 2, self.cords[1] + self.size / 2 * 3, 3, 3),
-                 pygame.Rect(self.cords[0] + self.size / 2 * 3, self.cords[1] + self.size / 2 * 3, 3, 3)]
+        rects = [pygame.Rect(self.cords[0] - self.size, self.cords[1] - self.size, 5, self.size * 2),
+                 pygame.Rect(self.cords[0] - self.size, self.cords[1] - self.size, self.size * 2, 5),
+                 pygame.Rect(self.cords[0] - self.size / 2, self.cords[1] - self.size + self.size / 2, 3, 3),
+                 pygame.Rect(self.cords[0] - self.size / 2 * 3, self.cords[1] - self.size + self.size / 2, 3, 3),
+                 pygame.Rect(self.cords[0] - self.size / 2, self.cords[1] - self.size + self.size / 2 * 3, 3, 3),
+                 pygame.Rect(self.cords[0] - self.size / 2 * 3, self.cords[1] - self.size + self.size / 2 * 3, 3, 3)]
         if self.shot_by != "Player":
             for player in players:
                 cords = player.rect
                 if pygame.Rect(cords[0], cords[1], tile_size - 20, tile_size - 20).collidelist(rects) != -1:
-                    print(self.cords, self.direction)
-                    player.take_damage(self.damage)
-                    return True
+                    return player.take_damage(self.damage)
+            for companion in companions:
+                cords = companion.rect
+                if pygame.Rect(cords[0], cords[1], tile_size - 20, tile_size - 20).collidelist(rects) != -1:
+                    return companion.take_damage(self.damage)
         if self.shot_by != "Boss":
             for boss in bosses:
                 cords = [boss.x, boss.y, boss.width, boss.height]
                 if pygame.Rect(cords).collidelist(rects) != -1:
-                    print(self.cords, self.direction)
                     boss.take_damage(self.damage)
                     return True
         return False
 
     def draw(self):
         pygame.draw.circle(screen, bullet_colors[self.shot_by], [int(self.cords[0]), int(self.cords[1])], self.size)
+
+
+class PowerUp:
+
+    def __init__(self):
+        self.size = size[1] / 50
+        self.cords = []
+        self.delay = 0
+        self.rect = []
+        self.reset()
+
+    def reset(self):
+        invalid_cords = True
+        while invalid_cords:
+            invalid_cords = False
+            self.cords = [random.randint(0, size[0]), random.randint(0 + self.size, size[1] - self.size)]
+            x = int(self.cords[0])
+            y = int(self.cords[1])
+            x2 = int(self.cords[0]) + self.size
+            y2 = int(self.cords[1]) + self.size
+
+            while x2 % tile_size != 0:
+                x2 -= 1
+            while y2 % tile_size != 0:
+                y2 -= 1
+            while x % tile_size != 0:
+                x -= 1
+            while y % tile_size != 0:
+                y -= 1
+
+            x /= tile_size
+            y /= tile_size
+            x2 /= tile_size
+            y2 /= tile_size
+
+            x -= 1
+            y -= 1
+            x2 -= 1
+            y2 -= 1
+
+            if game_map.get_map_value([int(x), int(y)]) == 0 or game_map.get_map_value([int(x), int(y2)]) == 0:
+                invalid_cords = True
+            if game_map.get_map_value([int(x2), int(y)]) == 0 or game_map.get_map_value([int(x2), int(y2)]) == 0:
+                invalid_cords = True
+            if game_map.get_map_value([int(x), int(y)]) == 0 or game_map.get_map_value([int(x2), int(y)]) == 0:
+                invalid_cords = True
+            if game_map.get_map_value([int(x), int(y2)]) == 0 or game_map.get_map_value([int(x2), int(y2)]) == 0:
+                invalid_cords = True
+
+        self.rect = [self.cords[0], self.cords[1], self.size, self.size]
+        self.delay = random.randint(100, 150)
+
+    def activate(self, player):
+        pass
+
+    def update(self):
+        if self.delay > 0:
+            self.delay -= 1
+            return
+        for player in players:
+            if self.cords[0] < player.cords[0] + player.size and self.cords[0] + self.size > player.cords[0] \
+                    and self.cords[1] < player.cords[1] + player.size and self.cords[1] + self.size > player.cords[1]:
+                self.reset()
+                self.activate(player)
+
+    def draw(self):
+        if self.delay > 0:
+            return
+        pygame.draw.rect(screen, (125, 255, 125), self.rect)
+
+
+class Health(PowerUp):
+
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, player):
+        player.take_damage(-50)
+
+    def draw(self):
+        if self.delay > 0:
+            return
+        pygame.draw.rect(screen, (200, 100, 100), pygame.Rect(self.rect))
+        draw_text("+", (130, 255, 130), [self.cords[0] + self.size / 2, self.cords[1] + self.size / 2], size=16)
 
 
 class Dud:
@@ -184,12 +297,12 @@ class Dud:
 
 class Boss:
 
-    def __init__(self, file_name, health=1000):
-        self.width = 134
-        self.height = 109
+    def __init__(self, file_name, health=1000, name="Dick Pickens", width=134, height=109):
+        self.width = width
+        self.height = height
         self.file_name = file_name
-        self.x = random.randint(0, size[0] - 134)
-        self.y = random.randint(0, size[1] - 109)
+        self.x = size[0] / 2 - width / 2  # random.randint(0, size[0] - self.width)
+        self.y = size[1] / 4 - height / 2  # random.randint(0, size[1] - self.height)
         self.x_add = random.choice([-2, 2])
         self.y_add = random.choice([-2, 2])
         self.x_last_switch = 0
@@ -199,6 +312,8 @@ class Boss:
         self.countdown = 0
         self.countdown_top = 10
         self.health = health
+        self.max_health = health
+        self.name = name
 
     def take_damage(self, damage):
         self.health -= damage
@@ -209,6 +324,9 @@ class Boss:
         pass
 
     def update(self):
+        self.move()
+
+    def move(self):
         if self.increasing:
             self.scale += 1
             if self.scale > 150:
@@ -239,14 +357,40 @@ class Boss:
     def draw(self):
         screen.blit(pygame.transform.smoothscale(pygame.image.load(self.file_name),
                                                  [self.width + self.scale, self.height + self.scale]), [self.x, self.y])
-        pygame.draw.rect(screen, (255, 0, 0), (self.x + self.width / 2 + self.scale / 2, self.y + self.height / 2 + self.scale / 2, 10, 10))
+
+    def die(self):
+        bosses.remove(self)
+
+
+class TheBoss(Boss):
+
+    def __init__(self):
+        super(TheBoss, self).__init__("DrHair.png", name="Dr. No Snow", width=124, height=128)
+        self.countdown_top = 1
+        self.theta = 0
+
+    def take_shots(self):
+        x = self.x + self.width / 2 + self.scale / 2
+        y = self.y + self.height / 2 + self.scale / 2
+        radius = 50
+        target = [x + radius * math.cos(math.radians(self.theta)), y + radius * math.sin(math.radians(self.theta))]
+        x_num = x + radius * math.cos(math.radians(self.theta)) - x
+        y_num = y + radius * math.sin(math.radians(self.theta)) - y
+        self.theta += 10
+        shoot(direction=[x_num, y_num], leaving=[x, y], shot_by="Boss")
+
+    def update(self):
+        if self.countdown == 0:
+            self.take_shots()
+            self.countdown = self.countdown_top
+        self.countdown -= 1
 
 
 class TheHoff(Boss):
 
     def __init__(self):
-        super(TheHoff, self).__init__("TheHoff.png")
-        self.countdown_top = 100
+        super(TheHoff, self).__init__("TheHoff.png", name="The Hoff Man")
+        self.countdown_top = 50
 
     def take_shots(self):
         x = self.x + self.width / 2 + self.scale / 2
@@ -256,9 +400,6 @@ class TheHoff(Boss):
                    [2, 1], [1, 2], [-2, 1], [1, -2], [-2, -1], [-1, 2], [-1, -2], [2, -1]]
         for target in targets:
             shoot(direction=target, leaving=[x, y], shot_by="Boss")
-
-    def die(self):
-        bosses.remove(self)
 
 
 class Player:
@@ -270,16 +411,22 @@ class Player:
         self.health = 100
         self.color = color
         self.bullet_cool_down = weapon.get_fire_rate()
-        self.shooting = True
+        self.shooting = False
         self.starting_cords = [cords[0], cords[1]]
         self.deaths = 0
         self.delta = [0, 0]
         self.last_shot = 0
-        self.rect = (self.cords[0], self.cords[1], tile_size - 20, tile_size - 20)
+        self.boost_time = 0
+        self.boost_delay = 0
+        self.pressed = [False, False, False, False]
+        self.name = "The Hoff Slayer"
+        self.size = tile_size
+        self.rect = [self.cords[0], self.cords[1], size, size]
 
     def update(self):
         self.handle_weapons()
         self.handle_movement()
+        self.subclass_update()
 
     def handle_weapons(self):
         if self.weapon.is_loaded() and self.shooting and time.time() - self.last_shot > self.weapon.get_fire_rate() / 60:
@@ -289,8 +436,8 @@ class Player:
     def handle_movement(self):
         x = int(self.cords[0])
         y = int(self.cords[1])
-        x2 = int(self.cords[0]) + tile_size - 20
-        y2 = int(self.cords[1]) + tile_size - 20
+        x2 = int(self.cords[0]) + self.size
+        y2 = int(self.cords[1]) + self.size
 
         while x2 % tile_size != 0:
             x2 -= 1
@@ -310,18 +457,22 @@ class Player:
                                   game_map.get_map_value([int(x), int(y2)]) == 0):
             self.delta[0] = 0
             self.cords[0] = x * tile_size + tile_size
+            self.pressed[0] = False
         if self.delta[0] > 0 and (game_map.get_map_value([int(x2), int(y)]) == 0 or
                                   game_map.get_map_value([int(x2), int(y2)]) == 0):
             self.delta[0] = 0
             self.cords[0] = x2 * tile_size - tile_size + 20
+            self.pressed[1] = False
         if self.delta[1] < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
                                   game_map.get_map_value([int(x2), int(y)]) == 0):
             self.delta[1] = 0
             self.cords[1] = y * tile_size + tile_size
+            self.pressed[3] = False
         if self.delta[1] > 0 and (game_map.get_map_value([int(x), int(y2)]) == 0 or
                                   game_map.get_map_value([int(x2), int(y2)]) == 0):
             self.delta[1] = 0
             self.cords[1] = y2 * tile_size - tile_size + 20
+            self.pressed[2] = False
 
         if self.delta[0] > 5:
             self.delta[0] = 5
@@ -333,11 +484,17 @@ class Player:
             self.delta[1] = -5
 
     def take_damage(self, damage):
+        if damage > 0:
+            screen.fill((255, 255, 255))
+            pygame.display.update()
+        if self.boost_time > 0:
+            return False
         self.health -= damage
         if self.health < 1:
-            self.cords = self.starting_cords
-            self.deaths += 1
+            self.reset()
+        if self.health > 100:
             self.health = 100
+        return True
 
     def get_cords(self):
         return self.cords
@@ -346,13 +503,30 @@ class Player:
         pass
 
     def move(self):
-        self.cords = [self.cords[0] + self.delta[0], self.cords[1] + self.delta[1]]
-        self.rect = (self.cords[0], self.cords[1], tile_size - 20, tile_size - 20)
+        if self.boost_time > 0:
+            self.cords = [self.cords[0] + self.delta[0] * 2, self.cords[1] + self.delta[1] * 2]
+            self.boost_time -= 1
+        else:
+            self.cords = [self.cords[0] + self.delta[0], self.cords[1] + self.delta[1]]
+        self.rect = [self.cords[0], self.cords[1], self.size, self.size]
 
     def draw(self):
-        pygame.draw.rect(screen, self.color, self.rect)
+        self.rect = [self.cords[0], self.cords[1], self.size, self.size]
+        pygame.draw.rect(screen, self.color, pygame.Rect(self.rect[0], self.rect[1], self.rect[2], self.rect[3]))
         for bullet in self.bullets:
             bullet.draw()
+
+    def subclass_update(self):
+        pass
+
+    def reset(self):
+        global lives
+        lives -= 1
+        self.cords = self.starting_cords
+        self.deaths += 1
+        self.health = 100
+        self.delta = [0, 0]
+        self.pressed = [False, False, False, False]
 
 
 class Human(Player):
@@ -362,38 +536,97 @@ class Human(Player):
 
     def shoot(self):
         target = pygame.mouse.get_pos()
-        shoot(target=target, leaving=([self.cords[0] + ((tile_size - 20) / 2), self.cords[1] + ((tile_size - 20) / 2)]),
+        shoot(target=target, leaving=([self.cords[0] + (self.size / 2), self.cords[1] + (self.size / 2)]),
               weapon=self.weapon)
         self.weapon.ammo -= 1
 
     def check_touch(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_a:
-                self.delta[0] += 5
-            if event.key == pygame.K_d:
                 self.delta[0] -= 5
+                self.pressed[0] = True
+            if event.key == pygame.K_d:
+                self.delta[0] += 5
+                self.pressed[1] = True
             if event.key == pygame.K_s:
                 self.delta[1] += 5
+                self.pressed[2] = True
             if event.key == pygame.K_w:
                 self.delta[1] -= 5
+                self.pressed[3] = True
             if event.key == pygame.K_SPACE:
-                self.shooting = True
-            if event.key == pygame.K_LSHIFT:
-                global running
-                running = True
+                if self.boost_delay == 0:
+                    self.boost_time = 10
+                    self.boost_delay = 30
             if event.key == pygame.K_r:
                 self.weapon.reload()
         if event.type == pygame.KEYUP:
-            if event.key == pygame.K_a:
-                self.delta[0] -= 5
-            if event.key == pygame.K_d:
+            if event.key == pygame.K_a and self.pressed[0]:
                 self.delta[0] += 5
-            if event.key == pygame.K_s:
+            if event.key == pygame.K_d and self.pressed[1]:
+                self.delta[0] -= 5
+            if event.key == pygame.K_s and self.pressed[2]:
                 self.delta[1] -= 5
-            if event.key == pygame.K_w:
+            if event.key == pygame.K_w and self.pressed[3]:
                 self.delta[1] += 5
-            if event.key == pygame.K_SPACE:
-                self.shooting = False
+
+    def subclass_update(self):
+        self.shooting = pygame.mouse.get_pressed()[0] == 1
+        if self.boost_delay > 0:
+            self.boost_delay -= 1
+
+
+class Companion(Player):
+
+    def __init__(self, cords, weapon, color=(0, 255, 0), player_following=0, img=None):
+        super().__init__(cords, weapon, color)
+        self.following = player_following
+        self.img = img
+        self.shooting = True
+
+    def move_with_player(self):
+        player = players[self.following]
+        if player.cords[0] - int(self.size * 1.5) > self.cords[0]:
+            self.delta[0] = 5
+        if player.cords[0] + int(self.size * 1.5) < self.cords[0]:
+            self.delta[0] = -5
+        if player.cords[1] - int(self.size * 1.5) > self.cords[1]:
+            self.delta[1] = 5
+        if player.cords[1] + int(self.size * 1.5) < self.cords[1]:
+            self.delta[1] = -5
+
+    def shoot(self):
+        closest_enemy = -1
+        distance = -1
+        for enemy in enemies:
+            current_distance = (enemy.x ** 2 + enemy.y ** 2) ** .5
+            if current_distance > distance or distance == -1:
+                closest_enemy = enemy
+                distance = current_distance
+        if closest_enemy == -1:
+            self.shooting = False
+            return
+        shoot([closest_enemy.x + closest_enemy.width / 2, closest_enemy.y + closest_enemy.height / 2],
+              [self.cords[0] + self.size / 2, self.cords[1] + self.size / 2])
+
+    def warn(self, bullet):
+        if bullet.cords[0] < self.cords[0]:
+            self.delta[0] = 5
+        else:
+            self.delta[0] = -5
+
+        if bullet.cords[1] < self.cords[1]:
+            self.delta[1] = 5
+        else:
+            self.delta[1] = -5
+
+    def draw(self):
+        if self.img:
+            screen.blit(pygame.transform.smoothscale(pygame.image.load(self.img),
+                                                     [int(tile_size * 2), int(tile_size * 2)]),
+                        [int(self.cords[0] - tile_size), int(self.cords[1] - tile_size)])
+        else:
+            pygame.draw.rect(screen, (130, 175, 255), (self.cords[0] - 50, self.cords[1] - 50, self.size, self.size))
 
 
 def update_bullets():
@@ -435,8 +668,97 @@ def shoot(target=[], leaving=[], direction=[], shot_by="Player", weapon=Pistol()
     bullets.append(Bullet([leaving[0] + towards[0] * 5, leaving[1] + towards[1] * 5], towards, weapon, shot_by))
 
 
+def draw_gui():
+    for i in range(lives):
+        screen.blit(pygame.transform.smoothscale(heart_img,
+                                                 [200, 100]), [-20 + 50 * i, size[1] - tile_size * 3 - 10])
+
+    for i in range(len(bosses)):
+        draw_health_bar(bosses[i].health, bosses[i].max_health,
+                        (100, tile_size * 2 + tile_size * i, size[0] - 200, tile_size - 10), name=bosses[i].name)
+
+    for i in range(len(players)):
+        draw_health_bar(players[i].health, 100,
+                        (size[0] - 200, size[1] - 50 - 35 * i, size[0] - (size[0] - 150), 12), name=players[i].name,
+                        size=12)
+
+    if players[0].boost_delay > 0:
+        dash = (100, 100, 100)
+    else:
+        dash = (100, 255, 100)
+    pygame.draw.rect(screen, dash, (size[0] / 2 - 38, size[1] - 50, 76, 5))
+
+
+def draw_health_bar(health, max_health, rect, name="", size=20):
+    pygame.draw.rect(screen, (75, 75, 75), rect)
+    health_ratio = health / max_health
+    if health > max_health:
+        pygame.draw.rect(screen, (255, 0, 0), (rect[0], rect[1], rect[2] * 1, rect[3]))
+    else:
+        pygame.draw.rect(screen, (255, 0, 0), (rect[0], rect[1], rect[2] * health_ratio, rect[3]))
+    draw_text(name + " " + str(health) + "/" + str(max_health),
+              cords=[rect[0] + rect[2] / 2, rect[1] - rect[3]], color=(255, 255, 255), size=size)
+
+
+def draw_text(msg, color=(255, 0, 0), cords=[0, 0], size=20):
+    if size == 20:
+        used_font = font
+    else:
+        used_font = pygame.font.Font('freesansbold.ttf', size)
+    text = pygame.font.Font.render(used_font, msg, True, color)
+    screen.blit(text, (cords[0] - used_font.size(msg)[0] / 2, cords[1] - used_font.size(msg)[1] / 2))
+
+
+def draw_buttons():
+    for button in buttons:
+        button.draw()
+
+
+def draw_game_over():
+    screen.fill((175, 125, 125))
+    draw_buttons()
+
+
+def spawn_bosses():
+    global bosses
+    bosses = []
+    for x in range(0):
+        bosses.append(TheHoff())
+    for x in range(1):
+        bosses.append(TheBoss())
+
+
+def create_players():
+    global players
+    players = [Human([size[0] / 2, size[0] / 2], MiniGun(), (125, 255, 125))]
+
+
+def create_companions():
+    global companions
+    companions = [Companion([size[0] / 2 - tile_size, size[1] / 2 - tile_size], Pistol(), (255, 255, 255),
+                            img="DWHITE.png")]
+
+
+def reset():
+    global lives
+    lives = 5
+    create_players()
+    spawn_bosses()
+
+
+def draw_power_ups():
+    for power_up in power_ups:
+        power_up.draw()
+
+
+def update_power_ups():
+    for power_up in power_ups:
+        power_up.update()
+
+
 pygame.init()
-font = pygame.font.Font('freesansbold.ttf', 15)
+lives = 5
+font = pygame.font.Font('freesansbold.ttf', 20)
 size = [800, 800]
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption("ScreenSaver")
@@ -446,39 +768,69 @@ running = True
 bullets = []
 tile_size = size[0] / 25
 game_map = Map(read_current_scene(name="CleanMap"))
-players = [Human([size[0] / 2, size[0] / 2], MiniGun(), (125, 255, 125))]
+players = []
+companions = []
+create_players()
+create_companions()
 clock = pygame.time.Clock()
 bullet_colors = {"Player": (50, 255, 50), "Boss": (255, 50, 50)}
-
+heart_img = pygame.image.load("Heart.png")
+game_over = False
+buttons = [Button([size[0] / 3, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Player Again",
+                  colors=[(0, 125, 0), (125, 255, 125)]),
+           Button([size[0] / 3 * 2, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Quit")]
+power_ups = [Health()]
 bosses = []
-for x in range(1):  # eval(input("Number of Pictures: "))):
-    bosses.append(TheHoff())
+#spawn_bosses()
+enemies = bosses.copy()
 
 while running:
-    game_map.draw()
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            quit(0)
-
-    update_bullets()
-    draw_bullets()
-    for boss in bosses:
-        boss.update()
-        boss.draw()
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            quit(0)
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_p:
-                for player in players:
-                    player.take_damage(100)
+    playing = True
+    while playing:
+        game_map.draw()
+        update_bullets()
+        draw_bullets()
+        update_power_ups()
+        draw_power_ups()
+        for boss in bosses:
+            boss.update()
+            boss.draw()
+        for companion in companions:
+            companion.update()
+            companion.draw()
+            companion.move_with_player()
+            companion.move()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    for player in players:
+                        player.take_damage(100)
+            for player in players:
+                player.check_touch(event)
         for player in players:
-            player.check_touch(event)
-    for player in players:
-        player.update()
-        player.draw()
-        player.move()
-    pygame.display.update()
-    clock.tick(60)
+            player.update()
+            player.draw()
+            player.move()
+        if lives == 0:
+            playing = False
+        draw_gui()
+        pygame.display.update()
+        clock.tick(60)
+    game_over = True
+    while game_over:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit(0)
+        draw_game_over()
+        if buttons[0].update():
+            game_over = False
+        if buttons[1].update():
+            pygame.quit()
+            quit(0)
+        pygame.display.update()
+        clock.tick(60)
+    reset()
