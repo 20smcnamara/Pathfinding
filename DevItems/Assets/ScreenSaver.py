@@ -3,6 +3,7 @@ import random
 import time
 import math
 from PathfindingMain.DevItems.Assets.Maps.SceneReader import read_current_scene
+from PathfindingMain.DevItems.Assets.RouteFinder import find_route
 
 
 class Button:
@@ -50,7 +51,6 @@ class Map:
                     self.walls.append([y, x])
 
     def get_map_value(self, cords):
-        print(cords)
         return self.map[cords[0]][cords[1]]
 
     def draw(self):
@@ -320,9 +320,6 @@ class Boss:
         if self.health <= 0:
             self.die()
 
-    def die(self):
-        pass
-
     def update(self):
         self.move()
 
@@ -360,6 +357,7 @@ class Boss:
 
     def die(self):
         bosses.remove(self)
+        enemies.remove(self)
 
 
 class TheBoss(Boss):
@@ -404,7 +402,7 @@ class TheHoff(Boss):
 
 class Player:
 
-    def __init__(self, cords, weapon, color):
+    def __init__(self, cords, weapon, color, name):
         self.cords = cords
         self.weapon = weapon
         self.bullets = []
@@ -419,8 +417,9 @@ class Player:
         self.boost_time = 0
         self.boost_delay = 0
         self.pressed = [False, False, False, False]
-        self.name = "The Hoff Slayer"
+        self.name = name
         self.size = tile_size
+        self.max_speed = 7
         self.rect = [self.cords[0], self.cords[1], size, size]
 
     def update(self):
@@ -453,40 +452,73 @@ class Player:
         x2 /= tile_size
         y2 /= tile_size
 
-        if self.delta[0] < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
-                                  game_map.get_map_value([int(x), int(y2)]) == 0):
+        # Checks ability to go left
+        try:
+            if self.delta[0] < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
+                                      game_map.get_map_value([int(x), int(y2)]) == 0) \
+                    and not (game_map.get_map_value([int(x2), int(y)]) == 0 or
+                             game_map.get_map_value([int(x2), int(y2)]) == 0):
+                self.delta[0] = 0
+                self.cords[0] = x * tile_size + tile_size + 1
+                self.pressed[0] = False
+        except IndexError:
             self.delta[0] = 0
-            self.cords[0] = x * tile_size + tile_size
+            self.cords[0] = x * tile_size + tile_size + 1
             self.pressed[0] = False
-        if self.delta[0] > 0 and (game_map.get_map_value([int(x2), int(y)]) == 0 or
-                                  game_map.get_map_value([int(x2), int(y2)]) == 0):
-            self.delta[0] = 0
-            self.cords[0] = x2 * tile_size - tile_size + 20
-            self.pressed[1] = False
-        if self.delta[1] < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
-                                  game_map.get_map_value([int(x2), int(y)]) == 0):
-            self.delta[1] = 0
-            self.cords[1] = y * tile_size + tile_size
-            self.pressed[3] = False
-        if self.delta[1] > 0 and (game_map.get_map_value([int(x), int(y2)]) == 0 or
-                                  game_map.get_map_value([int(x2), int(y2)]) == 0):
-            self.delta[1] = 0
-            self.cords[1] = y2 * tile_size - tile_size + 20
-            self.pressed[2] = False
 
-        if self.delta[0] > 5:
-            self.delta[0] = 5
-        if self.delta[0] < -5:
-            self.delta[0] = -5
-        if self.delta[1] > 5:
-            self.delta[1] = 5
-        if self.delta[1] < -5:
-            self.delta[1] = -5
+        # Checks ability to go right
+        try:
+            if self.delta[0] > 0 and (game_map.get_map_value([int(x2), int(y)]) == 0 or
+                                      game_map.get_map_value([int(x2), int(y2)]) == 0) \
+                    and not (game_map.get_map_value([int(x), int(y)]) == 0 or
+                             game_map.get_map_value([int(x), int(y2)]) == 0):
+                self.delta[0] = 0
+                self.cords[0] = x2 * tile_size - self.size - 1
+                self.pressed[1] = False
+        except IndexError:
+            self.delta[0] = 0
+            self.cords[0] = x * tile_size - self.size - 1
+            self.pressed[0] = False
+
+        # Checks ability to go up
+        try:
+            if self.delta[1] < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
+                                      game_map.get_map_value([int(x2), int(y)]) == 0) \
+                    and not (game_map.get_map_value([int(x), int(y2)]) == 0 or
+                             game_map.get_map_value([int(x2), int(y2)]) == 0):
+                self.delta[1] = 0
+                self.cords[1] = y * tile_size + tile_size + 1
+                self.pressed[3] = False
+        except IndexError:
+            self.delta[1] = 0
+            self.cords[1] = y * tile_size + tile_size + 1
+            self.pressed[1] = False
+
+        # Checks ability to go down
+        try:
+            if self.delta[1] > 0 and (game_map.get_map_value([int(x), int(y2)]) == 0 or
+                                      game_map.get_map_value([int(x2), int(y2)]) == 0) \
+                    and not (game_map.get_map_value([int(x), int(y)]) == 0 or
+                             game_map.get_map_value([int(x2), int(y)]) == 0):
+                self.delta[1] = 0
+                self.cords[1] = y2 * tile_size - self.size - 1
+                self.pressed[2] = False
+        except IndexError:
+            self.delta[1] = 0
+            self.cords[1] = y2 * tile_size - self.size - 1
+            self.pressed[1] = False
+
+        # Checks if player is going too fast
+        if self.delta[0] > self.max_speed:
+            self.delta[0] = self.max_speed
+        if self.delta[0] < -self.max_speed:
+            self.delta[0] = -self.max_speed
+        if self.delta[1] > self.max_speed:
+            self.delta[1] = self.max_speed
+        if self.delta[1] < -self.max_speed:
+            self.delta[1] = -self.max_speed
 
     def take_damage(self, damage):
-        if damage > 0:
-            screen.fill((255, 255, 255))
-            pygame.display.update()
         if self.boost_time > 0:
             return False
         self.health -= damage
@@ -531,8 +563,8 @@ class Player:
 
 class Human(Player):
 
-    def __init__(self, cords, weapon, color=(0, 255, 0)):
-        super().__init__(cords, weapon, color)
+    def __init__(self, cords, weapon, color=(0, 255, 0), name="The Hoff Slayer"):
+        super().__init__(cords, weapon, color, name)
 
     def shoot(self):
         target = pygame.mouse.get_pos()
@@ -578,22 +610,26 @@ class Human(Player):
 
 class Companion(Player):
 
-    def __init__(self, cords, weapon, color=(0, 255, 0), player_following=0, img=None):
-        super().__init__(cords, weapon, color)
+    def __init__(self, cords, weapon, color=(0, 255, 0), player_following=0, img=None, name="De White"):
+        super().__init__(cords, weapon, color, name)
         self.following = player_following
         self.img = img
         self.shooting = True
 
     def move_with_player(self):
         player = players[self.following]
-        if player.cords[0] - int(self.size * 1.5) > self.cords[0]:
+        if player.cords[0] - self.cords[0] > -self.size * 2:
             self.delta[0] = 5
-        if player.cords[0] + int(self.size * 1.5) < self.cords[0]:
+        elif player.cords[0] - self.cords[1] < self.size * 2:
             self.delta[0] = -5
-        if player.cords[1] - int(self.size * 1.5) > self.cords[1]:
+        if math.fabs(player.cords[0] - self.cords[0]) < self.size * 2:
+            self.delta[0] = 0
+        if player.cords[1] - self.cords[1] > -self.size * 2:
             self.delta[1] = 5
-        if player.cords[1] + int(self.size * 1.5) < self.cords[1]:
+        elif player.cords[1] - self.cords[1] < self.size * 2:
             self.delta[1] = -5
+        if math.fabs(player.cords[1] - self.cords[1]) < self.size * 2:
+            self.delta[1] = 0
 
     def shoot(self):
         closest_enemy = -1
@@ -677,10 +713,15 @@ def draw_gui():
         draw_health_bar(bosses[i].health, bosses[i].max_health,
                         (100, tile_size * 2 + tile_size * i, size[0] - 200, tile_size - 10), name=bosses[i].name)
 
-    for i in range(len(players)):
-        draw_health_bar(players[i].health, 100,
-                        (size[0] - 200, size[1] - 50 - 35 * i, size[0] - (size[0] - 150), 12), name=players[i].name,
-                        size=12)
+    for i in range(len(players) + len(companions)):
+        if i < len(players):
+            draw_health_bar(players[i].health, 100,
+                            (size[0] - 200, size[1] - 50 - 35 * i, size[0] - (size[0] - 150), 12), name=players[i].name,
+                            size=12)
+        else:
+            draw_health_bar(companions[i - len(players)].health, 100,
+                            (size[0] - 200, size[1] - 50 - 35 * i, size[0] - (size[0] - 150), 12),
+                            name=companions[i - len(players)].name, size=12)
 
     if players[0].boost_delay > 0:
         dash = (100, 100, 100)
@@ -709,14 +750,19 @@ def draw_text(msg, color=(255, 0, 0), cords=[0, 0], size=20):
     screen.blit(text, (cords[0] - used_font.size(msg)[0] / 2, cords[1] - used_font.size(msg)[1] / 2))
 
 
-def draw_buttons():
-    for button in buttons:
+def draw_game_over_buttons():
+    for button in game_over_buttons:
+        button.draw()
+
+
+def draw_menu_buttons():
+    for button in menu_buttons:
         button.draw()
 
 
 def draw_game_over():
     screen.fill((175, 125, 125))
-    draw_buttons()
+    draw_game_over_buttons()
 
 
 def spawn_bosses():
@@ -770,19 +816,39 @@ tile_size = size[0] / 25
 game_map = Map(read_current_scene(name="CleanMap"))
 players = []
 companions = []
-create_players()
-create_companions()
 clock = pygame.time.Clock()
 bullet_colors = {"Player": (50, 255, 50), "Boss": (255, 50, 50)}
 heart_img = pygame.image.load("Heart.png")
 game_over = False
-buttons = [Button([size[0] / 3, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Player Again",
-                  colors=[(0, 125, 0), (125, 255, 125)]),
-           Button([size[0] / 3 * 2, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Quit")]
+game_over_buttons = [Button([size[0] / 3, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Player Again",
+                     colors=[(0, 125, 0), (125, 255, 125)]),
+                     Button([size[0] / 3 * 2, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Quit")]
 power_ups = [Health()]
 bosses = []
-#spawn_bosses()
+spawn_bosses()
 enemies = bosses.copy()
+
+#
+# Begin setup menu code
+menu_buttons = [Button([size[0] / 6 * 2, size[1] / 10 * 8.5], [size[0] / 6, size[1] / 20 * 1], string="Previous"),
+                Button([size[0] / 6 * 4, size[1] / 10 * 8.5], [size[0] / 6, size[1] / 20 * 1], string="Next"),
+                Button([size[0] / 6 * 3, size[1] / 10 * 9.25], [size[0] / 6, size[1] / 20 * 1], string="Select")]
+setup = True
+skin_index = 0
+
+while setup:
+    screen.fill((100, 100, 100))
+    draw_menu_buttons()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            quit(0)
+    if menu_buttons[0].update():
+        skin_index -= 1
+    if menu_buttons[1].update():
+        skin_index += 1
+    pygame.display.update()
+
 
 while running:
     playing = True
@@ -795,11 +861,6 @@ while running:
         for boss in bosses:
             boss.update()
             boss.draw()
-        for companion in companions:
-            companion.update()
-            companion.draw()
-            companion.move_with_player()
-            companion.move()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -814,6 +875,11 @@ while running:
             player.update()
             player.draw()
             player.move()
+        for companion in companions:
+            companion.update()
+            companion.move_with_player()
+            companion.move()
+            companion.draw()
         if lives == 0:
             playing = False
         draw_gui()
@@ -826,9 +892,9 @@ while running:
                 pygame.quit()
                 quit(0)
         draw_game_over()
-        if buttons[0].update():
+        if game_over_buttons[0].update():
             game_over = False
-        if buttons[1].update():
+        if game_over_buttons[1].update():
             pygame.quit()
             quit(0)
         pygame.display.update()
