@@ -33,8 +33,7 @@ class Button:
                          (int(self.cords[0] - self.size[0] / 2), int(self.cords[1] - self.size[1] / 2), self.size[0],
                           self.size[1]))
         text = pygame.font.Font.render(font, self.string, True, (0, 0, 0))
-        screen.blit(text, (self.cords[0] - font.size(self.string)[0] / 2, self.cords[1] - self.size[1] / 6
-                           - font.size(self.string)[1] / 2))
+        screen.blit(text, (self.cords[0] - font.size(self.string)[0] / 2, self.cords[1] - self.size[1] / 6))
 
 
 class Map:
@@ -124,6 +123,12 @@ class Pistol(Gun):
         super().__init__([20, 35], 100, 12)
 
 
+class Sniper(Gun):
+
+    def __init__(self):
+        super().__init__([9800, 10000], 50, 5, bullet_size=3, fire_rate=1)
+
+
 class MiniGun(Gun):
 
     def __init__(self):
@@ -181,6 +186,24 @@ class Bullet:
                 if pygame.Rect(cords[0], cords[1], tile_size - 20, tile_size - 20).collidelist(rects) != -1:
                     return player.take_damage(self.damage)
             for companion in companions:
+                player_x = companion.cords[0] + companion.size
+                x = self.cords[0]
+                if self.cords[0] + self.size < companion.cords[0]:
+                    x = self.cords[0] + self.size
+                    player_x = companion.cords[0]
+
+                player_y = companion.cords[1] + companion.size
+                y = self.cords[1]
+                if self.cords[1] + self.size < companion.cords[1]:
+                    y = self.cords[1] + self.size
+                    player_y = companion.cords[1]
+
+                dist_x = player_x - x
+                dist_y = player_y - y
+                dist = (dist_x ** 2 + dist_y ** 2) ** .5
+                if dist <= self.size * 1.5:
+                    companion.warn(self)
+
                 cords = companion.rect
                 if pygame.Rect(cords[0], cords[1], tile_size - 20, tile_size - 20).collidelist(rects) != -1:
                     return companion.take_damage(self.damage)
@@ -209,7 +232,8 @@ class PowerUp:
         invalid_cords = True
         while invalid_cords:
             invalid_cords = False
-            self.cords = [random.randint(0, size[0]), random.randint(0 + self.size, size[1] - self.size)]
+            self.cords = [random.randint(0 + self.size, size[0] - self.size - 1),
+                          random.randint(0 + self.size, size[1] - self.size - 1)]
             x = int(self.cords[0])
             y = int(self.cords[1])
             x2 = int(self.cords[0]) + self.size
@@ -229,11 +253,6 @@ class PowerUp:
             x2 /= tile_size
             y2 /= tile_size
 
-            x -= 1
-            y -= 1
-            x2 -= 1
-            y2 -= 1
-
             if game_map.get_map_value([int(x), int(y)]) == 0 or game_map.get_map_value([int(x), int(y2)]) == 0:
                 invalid_cords = True
             if game_map.get_map_value([int(x2), int(y)]) == 0 or game_map.get_map_value([int(x2), int(y2)]) == 0:
@@ -244,7 +263,7 @@ class PowerUp:
                 invalid_cords = True
 
         self.rect = [self.cords[0], self.cords[1], self.size, self.size]
-        self.delay = random.randint(100, 150)
+        self.delay = random.randint(250, 300)
 
     def activate(self, player):
         pass
@@ -280,6 +299,21 @@ class Health(PowerUp):
         draw_text("+", (130, 255, 130), [self.cords[0] + self.size / 2, self.cords[1] + self.size / 2], size=16)
 
 
+class Sheild(PowerUp):
+
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, player):
+        player.stronk = 100
+
+    def draw(self):
+        if self.delay > 0:
+            return
+        pygame.draw.rect(screen, (100, 100, 100), pygame.Rect(self.rect))
+        draw_text("( )", (130, 130, 130), [self.cords[0] + self.size / 2, self.cords[1] + self.size / 2], size=16)
+
+
 class Dud:
 
     def __init__(self, cords, color):
@@ -303,8 +337,12 @@ class Boss:
         self.file_name = file_name
         self.x = size[0] / 2 - width / 2  # random.randint(0, size[0] - self.width)
         self.y = size[1] / 4 - height / 2  # random.randint(0, size[1] - self.height)
-        self.x_add = random.choice([-2, 2])
-        self.y_add = random.choice([-2, 2])
+        point = [random.randint(0, size[0]), random.randint(0, size[1])]
+        dist_x = point[0] - self.x
+        dist_y = point[1] - self.y
+        dist = (dist_x ** 2 + dist_y ** 2) ** .5
+        self.x_add = 2 * dist_x / dist
+        self.y_add = 2 * dist_y / dist
         self.x_last_switch = 0
         self.y_last_switch = 0
         self.increasing = True
@@ -325,11 +363,11 @@ class Boss:
 
     def move(self):
         if self.increasing:
-            self.scale += 1
+            # self.scale += 1
             if self.scale > 150:
                 self.increasing = False
         else:
-            self.scale -= 1
+            # self.scale -= 1
             if self.scale < 1:
                 self.increasing = True
 
@@ -343,10 +381,12 @@ class Boss:
 
         self.x += self.x_add
         self.y += self.y_add
+
         if self.countdown == 0:
             self.take_shots()
             self.countdown = self.countdown_top
-        self.countdown -= 1
+        if self.countdown > 0:
+            self.countdown -= 1
 
     def take_shots(self):
         pass
@@ -356,8 +396,11 @@ class Boss:
                                                  [self.width + self.scale, self.height + self.scale]), [self.x, self.y])
 
     def die(self):
-        bosses.remove(self)
-        enemies.remove(self)
+        try:
+            bosses.remove(self)
+            enemies.remove(self)
+        except ValueError:
+            print("WTF")
 
 
 class TheBoss(Boss):
@@ -371,7 +414,6 @@ class TheBoss(Boss):
         x = self.x + self.width / 2 + self.scale / 2
         y = self.y + self.height / 2 + self.scale / 2
         radius = 50
-        target = [x + radius * math.cos(math.radians(self.theta)), y + radius * math.sin(math.radians(self.theta))]
         x_num = x + radius * math.cos(math.radians(self.theta)) - x
         y_num = y + radius * math.sin(math.radians(self.theta)) - y
         self.theta += 10
@@ -382,6 +424,37 @@ class TheBoss(Boss):
             self.take_shots()
             self.countdown = self.countdown_top
         self.countdown -= 1
+
+    def die(self):
+        new = BaldBoss()
+        bosses.append(new)
+        enemies.append(new)
+        try:
+            bosses.remove(self)
+            enemies.remove(self)
+        except ValueError:
+            print("WTF")
+
+
+class BaldBoss(Boss):
+
+    def __init__(self):
+        super(BaldBoss, self).__init__("DrNoHair.png", name="Dr. No Snow", width=124, height=128)
+        self.countdown_top = 1
+        self.thetas = [0, 90, 180, 270]
+
+    def take_shots(self):
+        x = self.x + self.width / 2 + self.scale / 2
+        y = self.y + self.height / 2 + self.scale / 2
+        radius = 50
+        for index, theta in enumerate(self.thetas):
+            x_num = x + radius * math.cos(math.radians(theta)) - x
+            y_num = y + radius * math.sin(math.radians(theta)) - y
+            self.thetas[index] += 30
+            shoot(direction=[x_num, y_num], leaving=[x, y], shot_by="Boss")
+
+    def update(self):
+        self.move()
 
 
 class TheHoff(Boss):
@@ -404,6 +477,7 @@ class Player:
 
     def __init__(self, cords, weapon, color, name):
         self.cords = cords
+        self.stronk = 0
         self.weapon = weapon
         self.bullets = []
         self.health = 100
@@ -521,7 +595,8 @@ class Player:
     def take_damage(self, damage):
         if self.boost_time > 0:
             return False
-        self.health -= damage
+        if self.stronk == 0:
+            self.health -= damage
         if self.health < 1:
             self.reset()
         if self.health > 100:
@@ -552,9 +627,11 @@ class Player:
         pass
 
     def reset(self):
-        global lives
-        lives -= 1
+        if isinstance(self, Human):
+            global lives
+            lives -= 1
         self.cords = self.starting_cords
+        self.stronk = 10
         self.deaths += 1
         self.health = 100
         self.delta = [0, 0]
@@ -618,18 +695,26 @@ class Companion(Player):
 
     def move_with_player(self):
         player = players[self.following]
-        if player.cords[0] - self.cords[0] > -self.size * 2:
-            self.delta[0] = 5
-        elif player.cords[0] - self.cords[1] < self.size * 2:
-            self.delta[0] = -5
-        if math.fabs(player.cords[0] - self.cords[0]) < self.size * 2:
-            self.delta[0] = 0
-        if player.cords[1] - self.cords[1] > -self.size * 2:
-            self.delta[1] = 5
-        elif player.cords[1] - self.cords[1] < self.size * 2:
-            self.delta[1] = -5
-        if math.fabs(player.cords[1] - self.cords[1]) < self.size * 2:
-            self.delta[1] = 0
+
+        player_x = player.cords[0] + player.size
+        x = self.cords[0]
+        if self.cords[0] + self.size < player.cords[0]:
+            x = self.cords[0] + self.size
+            player_x = player.cords[0]
+
+        player_y = player.cords[1] + player.size
+        y = self.cords[1]
+        if self.cords[1] + self.size < player.cords[1]:
+            y = self.cords[1] + self.size
+            player_y = player.cords[1]
+
+        dist_x = player_x - x
+        dist_y = player_y - y
+        dist = (dist_x ** 2 + dist_y ** 2) ** .5
+        if dist > self.size * 1.5:
+            self.delta = [5 * dist_x / dist, 5 * dist_y / dist]
+        else:
+            self.delta = [0, 0]
 
     def shoot(self):
         closest_enemy = -1
@@ -685,13 +770,13 @@ def shoot(target=[], leaving=[], direction=[], shot_by="Player", weapon=Pistol()
         axis_distances = [math.fabs(leaving[0] - target[0]), math.fabs(leaving[1] - target[1])]
     else:
         axis_distances = direction
-    x_direction = 1
-    y_direction = 1
+    x_direction = 1.25
+    y_direction = 1.25
     if len(target) != 0:
         if target[0] < leaving[0]:
-            x_direction = -1
+            x_direction *= -1
         if target[1] < leaving[1]:
-            y_direction = -1
+            y_direction *= -1
     distance = (axis_distances[0]**2 + axis_distances[1]**2)**0.5 / 5
     try:
         towards = [axis_distances[0] / distance * x_direction]
@@ -711,7 +796,7 @@ def draw_gui():
 
     for i in range(len(bosses)):
         draw_health_bar(bosses[i].health, bosses[i].max_health,
-                        (100, tile_size * 2 + tile_size * i, size[0] - 200, tile_size - 10), name=bosses[i].name)
+                        (100, tile_size * 2 + tile_size * 1.5 * i, size[0] - 200, tile_size - 10), name=bosses[i].name)
 
     for i in range(len(players) + len(companions)):
         if i < len(players):
@@ -738,7 +823,7 @@ def draw_health_bar(health, max_health, rect, name="", size=20):
     else:
         pygame.draw.rect(screen, (255, 0, 0), (rect[0], rect[1], rect[2] * health_ratio, rect[3]))
     draw_text(name + " " + str(health) + "/" + str(max_health),
-              cords=[rect[0] + rect[2] / 2, rect[1] - rect[3]], color=(255, 255, 255), size=size)
+              cords=[rect[0] + rect[2] / 2, rect[1] - rect[3] / 2], color=(255, 255, 255), size=size)
 
 
 def draw_text(msg, color=(255, 0, 0), cords=[0, 0], size=20):
@@ -755,9 +840,9 @@ def draw_game_over_buttons():
         button.draw()
 
 
-def draw_menu_buttons():
-    for button in menu_buttons:
-        button.draw()
+# def draw_menu_buttons():
+#     for button in menu_buttons:
+#         button.draw()
 
 
 def draw_game_over():
@@ -765,18 +850,18 @@ def draw_game_over():
     draw_game_over_buttons()
 
 
-def spawn_bosses():
+def spawn_bosses(number=(0, 1)):
     global bosses
     bosses = []
-    for x in range(0):
+    for x in range(number[0]):
         bosses.append(TheHoff())
-    for x in range(1):
+    for x in range(number[1]):
         bosses.append(TheBoss())
 
 
 def create_players():
     global players
-    players = [Human([size[0] / 2, size[0] / 2], MiniGun(), (125, 255, 125))]
+    players = [Human([size[0] / 2, size[0] / 2], Sniper(), (125, 255, 125))]
 
 
 def create_companions():
@@ -786,10 +871,14 @@ def create_companions():
 
 
 def reset():
-    global lives
+    global lives, bullets, players, bosses, enemies
     lives = 5
+    players = []
+    bosses = []
+    enemies = []
     create_players()
     spawn_bosses()
+    bullets = []
 
 
 def draw_power_ups():
@@ -816,43 +905,51 @@ tile_size = size[0] / 25
 game_map = Map(read_current_scene(name="CleanMap"))
 players = []
 companions = []
+create_players()
+#create_companions()
 clock = pygame.time.Clock()
 bullet_colors = {"Player": (50, 255, 50), "Boss": (255, 50, 50)}
 heart_img = pygame.image.load("Heart.png")
-game_over = False
+game_over = True
 game_over_buttons = [Button([size[0] / 3, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Player Again",
                      colors=[(0, 125, 0), (125, 255, 125)]),
                      Button([size[0] / 3 * 2, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Quit")]
-power_ups = [Health()]
+power_ups = [Health(), Sheild()]
 bosses = []
-spawn_bosses()
+# spawn_bosses()
+levels = [[1, 0], [0, 1], [2, 0], [3, 0], [1, 1], [2, 1]]
 enemies = bosses.copy()
 
-#
 # Begin setup menu code
-menu_buttons = [Button([size[0] / 6 * 2, size[1] / 10 * 8.5], [size[0] / 6, size[1] / 20 * 1], string="Previous"),
-                Button([size[0] / 6 * 4, size[1] / 10 * 8.5], [size[0] / 6, size[1] / 20 * 1], string="Next"),
-                Button([size[0] / 6 * 3, size[1] / 10 * 9.25], [size[0] / 6, size[1] / 20 * 1], string="Select")]
-setup = True
-skin_index = 0
-
-while setup:
-    screen.fill((100, 100, 100))
-    draw_menu_buttons()
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            quit(0)
-    if menu_buttons[0].update():
-        skin_index -= 1
-    if menu_buttons[1].update():
-        skin_index += 1
-    pygame.display.update()
+# menu_buttons = [Button([size[0] / 6 * 2, size[1] / 10 * 8.5], [size[0] / 6, size[1] / 20 * 1], string="Previous"),
+#                 Button([size[0] / 6 * 4, size[1] / 10 * 8.5], [size[0] / 6, size[1] / 20 * 1], string="Next"),
+#                 Button([size[0] / 6 * 3, size[1] / 10 * 9.25], [size[0] / 6, size[1] / 20 * 1], string="Select")]
+# setup = False
+# skin_index = 0
+#
+# while setup:
+#     screen.fill((100, 100, 100))
+#     draw_menu_buttons()
+#     for event in pygame.event.get():
+#         if event.type == pygame.QUIT:
+#             pygame.quit()
+#             quit(0)
+#     if menu_buttons[0].update():
+#         skin_index -= 1
+#     if menu_buttons[1].update():
+#         skin_index += 1
+#     pygame.display.update()
 
 
 while running:
     playing = True
     while playing:
+        if len(bosses) == 0:
+            try:
+                spawn_bosses(levels[0])
+                del levels[0]
+            except IndexError:
+                spawn_bosses([5, 5])
         game_map.draw()
         update_bullets()
         draw_bullets()
