@@ -6,6 +6,53 @@ from PathfindingMain.DevItems.Assets.Maps.SceneReader import read_current_scene
 from PathfindingMain.DevItems.Assets.RouteFinder import find_route
 
 
+class DrawnObject:
+
+    def __init__(self):
+        drawn_objects.append(self)
+
+    def adjust(self, x_add, y_add):
+        try:
+            self.x += x_add
+            self.y += y_add
+        except AttributeError:
+            try:
+                self.cords[0] += x_add
+                self.cords[1] += y_add
+            except AttributeError:
+                print("Well Shit")
+
+
+class CollisionObject(DrawnObject):
+
+    def __init__(self):
+        self.rect = "Shit"
+        self.cords = [0, 0]
+        super().__init__()
+
+    def update(self):
+        try:
+            self.rect = (self.cords[0], self.cords[1], self.size, self.size)
+        except:
+            pass
+
+    def collide_rect(self, other):
+        if self.rect == "Shit":
+            print("Mistakes were made")
+            return False
+        try:
+            print("\n1" + str(self.rect))
+            print(other.left, other.top, other.width, other.height)
+            other.update()
+            print(other.left, other.top, other.width, other.height)
+            to_return = other.colliderect(pygame.Rect(self.rect[0], self.rect[1], self.rect[2], self.rect[3]))
+            return to_return == 1
+        except AttributeError:
+            print("A bad thing is happening")
+            return other.colliderect(self.rect) == 1
+
+
+
 class Button:
 
     def __init__(self, cords, size, string="Start", colors=[(125, 0, 0), (255, 125, 125)]):
@@ -36,34 +83,33 @@ class Button:
         screen.blit(text, (self.cords[0] - font.size(self.string)[0] / 2, self.cords[1] - self.size[1] / 6))
 
 
+class Wall(CollisionObject):
+
+    def __init__(self, rect, color=(25, 25, 75)):
+        super().__init__()
+        self.rect = rect
+        self.cords = [rect[0], rect[1]]
+        self.color = color
+
+    def draw(self):
+        screen.blit(pygame.transform.smoothscale(pygame.image.load("wall.png"), (int(self.rect[2]), int(self.rect[3]))),
+                    [self.cords[0], self.cords[1]])
+
+
 class Map:
 
     def __init__(self, scene):
         self.map = scene
-        self.walls = []
-        self.load_walls()
-
-    def load_walls(self):
-        for x in range(len(self.map)):
-            for y in range(len(self.map[x])):
-                if self.get_map_value([x, y]) == 0:
-                    self.walls.append([y, x])
-
-    def get_map_value(self, cords):
-        return self.map[cords[0]][cords[1]]
+        self.walls = [Wall((size[0] / 2 - map_size[0] / 2, 0, tile_size, map_size[1] - tile_size)),
+					   Wall((size[0] / 2 - map_size[0] / 2, 0, map_size[1], tile_size)),
+					   Wall((size[0] / 2 - map_size[0] / 2, size[1] / 2 + map_size[1] / 2 - tile_size, map_size[0], tile_size)),
+					   Wall((size[0] / 2 + map_size[0] / 2 - tile_size, 0, tile_size, map_size[1]))]
 
     def draw(self):  # TODO Clean up this code and then make it blit images instead of drawing rect's then add a delta
                     # TODO to have parts of the map of screen at times. Then rework into an list of obstacles.
-        for row in range(len(self.map)):
-            for col in range(len(self.map[row])):
-                if self.map[row][col] == 0:
-                    pygame.draw.rect(screen, (25, 25, 75),
-                                     (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
-                                      size[0] / len(self.map), size[1] / len(self.map[0])))
-                elif self.map[row][col] == 1:
-                    pygame.draw.rect(screen, (50, 50, 150),
-                                     (col * (size[0] / len(self.map[0])), row * (size[1] / len(self.map)),
-                                      size[0] / len(self.map), size[1] / len(self.map[0])))
+        screen.fill((50, 50, 150))
+        for wall in self.walls:
+            wall.draw()
 
 
 class Gun:
@@ -136,9 +182,10 @@ class MiniGun(Gun):
         super().__init__([5, 7], 10000, 1000, fire_rate=3)
 
 
-class Bullet:
+class Bullet(DrawnObject):
 
     def __init__(self, cords, direction, weapon, shooter):
+        super().__init__()
         self.cords = cords
         self.size = weapon.get_bullet_size()
         self.damage = weapon.get_damage()
@@ -153,26 +200,7 @@ class Bullet:
         self.cords = [self.cords[0] + self.direction[0], self.cords[1] + self.direction[1]]
 
     def check_valid(self):
-        x = int(self.cords[0])
-        y = int(self.cords[1])
-        if x >= size[0] or y >= size[1] or x < 0 or y < 0:
-            return True
-        if tile_size < self.size:
-            x2 = x + self.size
-            y2 = y + self.size
-            while x2 % tile_size != 0:
-                x2 -= 1
-            while y2 % tile_size != 0:
-                y2 -= 1
-            if game_map.map[int(x2/tile_size)][int(y2/tile_size)] == 0:
-                return True
-        while x % tile_size != 0:
-            x -= 1
-        while y % tile_size != 0:
-            y -= 1
-        if game_map.map[int(x/tile_size)][int(y/tile_size)] == 0:
-            return True
-        return False
+        pass
 
     def check_organism_collision(self):
         rects = [pygame.Rect(self.cords[0] - self.size, self.cords[1] - self.size, 5, self.size * 2),
@@ -226,50 +254,19 @@ class Bullet:
         pygame.draw.circle(screen, bullet_colors[self.shot_by], [int(self.cords[0]), int(self.cords[1])], self.size)
 
 
-class PowerUp:
+class PowerUp(DrawnObject):
 
     def __init__(self, delay_top):
+        super().__init__()
         self.size = size[1] / 50
-        self.cords = []
+        self.cords = [random.randint(0, map_size[0] - self.size), random.randint(0, map_size[1] - self.size)]
         self.delay = 0
         self.delay_top = delay_top
         self.rect = []
         self.reset()
 
     def reset(self):
-        invalid_cords = True
-        while invalid_cords:
-            invalid_cords = False
-            self.cords = [random.randint(0 + self.size, size[0] - self.size - 1),
-                          random.randint(0 + self.size, size[1] - self.size - 1)]
-            x = int(self.cords[0])
-            y = int(self.cords[1])
-            x2 = int(self.cords[0]) + self.size
-            y2 = int(self.cords[1]) + self.size
-
-            while x2 % tile_size != 0:
-                x2 -= 1
-            while y2 % tile_size != 0:
-                y2 -= 1
-            while x % tile_size != 0:
-                x -= 1
-            while y % tile_size != 0:
-                y -= 1
-
-            x /= tile_size
-            y /= tile_size
-            x2 /= tile_size
-            y2 /= tile_size
-
-            if game_map.get_map_value([int(x), int(y)]) == 0 or game_map.get_map_value([int(x), int(y2)]) == 0:
-                invalid_cords = True
-            if game_map.get_map_value([int(x2), int(y)]) == 0 or game_map.get_map_value([int(x2), int(y2)]) == 0:
-                invalid_cords = True
-            if game_map.get_map_value([int(x), int(y)]) == 0 or game_map.get_map_value([int(x2), int(y)]) == 0:
-                invalid_cords = True
-            if game_map.get_map_value([int(x), int(y2)]) == 0 or game_map.get_map_value([int(x2), int(y2)]) == 0:
-                invalid_cords = True
-
+        self.cords = [random.randint(0, map_size[0] - self.size), random.randint(0, map_size[1] - self.size)]
         self.rect = [self.cords[0], self.cords[1], self.size, self.size]
         self.delay = random.randint(self.delay_top[0], self.delay_top[1])
 
@@ -280,6 +277,7 @@ class PowerUp:
         if self.delay > 0:
             self.delay -= 1
             return
+        self.rect = (self.cords[0], self.cords[1], self.size, self.size)
         for player in players:
             if self.cords[0] < player.cords[0] + player.size and self.cords[0] + self.size > player.cords[0] \
                     and self.cords[1] < player.cords[1] + player.size and self.cords[1] + self.size > player.cords[1]:
@@ -289,7 +287,7 @@ class PowerUp:
     def draw(self):
         if self.delay > 0:
             return
-        pygame.draw.rect(screen, (125, 255, 125), self.rect)
+        pygame.draw.rect(screen, (125, 255, 125), (self.cords[0], self.cords[1], self.size, self.size))
 
 
 class Health(PowerUp):
@@ -303,7 +301,7 @@ class Health(PowerUp):
     def draw(self):
         if self.delay > 0:
             return
-        pygame.draw.rect(screen, (200, 100, 100), pygame.Rect(self.rect))
+        pygame.draw.rect(screen, (200, 100, 100), (self.cords[0], self.cords[1], self.size, self.size))
         draw_text("+", (130, 255, 130), [self.cords[0] + self.size / 2, self.cords[1] + self.size / 2], size=16)
 
 
@@ -318,7 +316,7 @@ class Shield(PowerUp):
     def draw(self):
         if self.delay > 0:
             return
-        pygame.draw.rect(screen, (100, 100, 100), pygame.Rect(self.rect))
+        pygame.draw.rect(screen, (100, 100, 100), (self.cords[0], self.cords[1], self.size, self.size))
         draw_text("@", (130, 130, 130), [self.cords[0] + self.size / 2, self.cords[1] + self.size / 2], size=16)
 
 
@@ -333,19 +331,22 @@ class Dud:
         self.cords = cords
 
     def draw(self):
-        rect = (self.cords[0] * tile_size + 10, self.cords[1] * tile_size + 10, tile_size - 20, tile_size - 20)
+        rect = (self.cords[0] * tile_size + 10,
+                self.cords[1] * tile_size + 10, tile_size - 20,
+                tile_size - 20)
         pygame.draw.rect(screen, self.color, rect)
 
 
-class Boss:
+class Boss(DrawnObject):
 
     def __init__(self, file_name, health=1000, name="Dick Pickens", width=134, height=109):
+        super().__init__()
         self.width = width
         self.height = height
         self.file_name = file_name
-        self.x = size[0] / 2 - width / 2  # random.randint(0, size[0] - self.width)
-        self.y = size[1] / 4 - height / 2  # random.randint(0, size[1] - self.height)
-        point = [random.randint(0, size[0]), random.randint(0, size[1])]
+        self.x = map_size[0] / 2 - width / 2
+        self.y = map_size[1] / 4 - height / 2
+        point = [random.randint(0, map_size[0]), random.randint(0, map_size[1])]
         dist_x = point[0] - self.x
         dist_y = point[1] - self.y
         dist = (dist_x ** 2 + dist_y ** 2) ** .5
@@ -378,73 +379,6 @@ class Boss:
             # self.scale -= 1
             if self.scale < 1:
                 self.increasing = True
-
-        x = int(self.x)
-        y = int(self.y)
-        x2 = int(self.x) + self.width
-        y2 = int(self.y) + self.height
-
-        while x2 % tile_size != 0:
-            x2 -= 1
-        while y2 % tile_size != 0:
-            y2 -= 1
-        while x % tile_size != 0:
-            x -= 1
-        while y % tile_size != 0:
-            y -= 1
-
-        x /= tile_size
-        y /= tile_size
-        x2 /= tile_size
-        y2 /= tile_size
-
-        # Checks ability to go left
-        try:
-            if self.x_add < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
-                                   game_map.get_map_value([int(x), int(y2)]) == 0) \
-                    and not (game_map.get_map_value([int(x2), int(y)]) == 0 or
-                             game_map.get_map_value([int(x2), int(y2)]) == 0):
-                self.x_add *= -1
-                self.x = x * tile_size + tile_size + 1
-        except IndexError:
-            self.x_add *= -1
-            self.x = x * tile_size + tile_size + 1
-
-        # Checks ability to go right
-        try:
-            if self.x_add > 0 and (game_map.get_map_value([int(x2), int(y)]) == 0 or
-                                   game_map.get_map_value([int(x2), int(y2)]) == 0) \
-                    and not (game_map.get_map_value([int(x), int(y)]) == 0 or
-                             game_map.get_map_value([int(x), int(y2)]) == 0):
-                self.x_add *= -1
-                self.x = x2 * tile_size - self.width - 1
-        except IndexError:
-            self.x_add *= -1
-            self.x = x * tile_size - self.width - 1
-
-        # Checks ability to go up
-        try:
-            if self.y < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
-                               game_map.get_map_value([int(x2), int(y)]) == 0) \
-                    and not (game_map.get_map_value([int(x), int(y2)]) == 0 or
-                             game_map.get_map_value([int(x2), int(y2)]) == 0):
-                self.y_add *= -1
-                self.y = y * tile_size + tile_size + 1
-        except IndexError:
-            self.y_add *= -1
-            self.y = y * tile_size + tile_size + 1
-
-        # Checks ability to go down
-        try:
-            if self.y > 0 and (game_map.get_map_value([int(x), int(y2)]) == 0 or
-                               game_map.get_map_value([int(x2), int(y2)]) == 0) \
-                    and not (game_map.get_map_value([int(x), int(y)]) == 0 or
-                             game_map.get_map_value([int(x2), int(y)]) == 0):
-                self.y_add *= -1
-                self.y = y2 * tile_size - self.height - 1
-        except IndexError:
-            self.y_add = 0
-            self.y = y2 * tile_size - self.height - 1
 
         self.x += self.x_add
         self.y += self.y_add
@@ -517,9 +451,10 @@ class BaldBoss(Boss):
             shoot(direction=[x_num, y_num], leaving=[x, y], shot_by="Boss")
 
 
-class MeatShield:
+class MeatShield(DrawnObject):
 
     def __init__(self, cords, color=[255, 50, 50]):
+        super().__init__()
         self.cords = cords
         self.following = 0
         self.health = 50
@@ -625,7 +560,7 @@ class Player:
         self.name = name
         self.size = tile_size
         self.max_speed = 7
-        self.rect = [self.cords[0], self.cords[1], size, size]
+        self.rect = [self.cords[0], self.cords[1], self.size, self.size]
 
     def update(self):
         self.handle_weapons()
@@ -643,81 +578,6 @@ class Player:
             self.last_shot = time.time()
 
     def handle_movement(self):
-        x = int(self.cords[0])
-        y = int(self.cords[1])
-        x2 = int(self.cords[0]) + self.size
-        y2 = int(self.cords[1]) + self.size
-
-        while x2 % tile_size != 0:
-            x2 -= 1
-        while y2 % tile_size != 0:
-            y2 -= 1
-        while x % tile_size != 0:
-            x -= 1
-        while y % tile_size != 0:
-            y -= 1
-
-        x /= tile_size
-        y /= tile_size
-        x2 /= tile_size
-        y2 /= tile_size
-
-        # Checks ability to go left
-        try:
-            if self.delta[0] < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
-                                      game_map.get_map_value([int(x), int(y2)]) == 0) \
-                    and not (game_map.get_map_value([int(x2), int(y)]) == 0 or
-                             game_map.get_map_value([int(x2), int(y2)]) == 0):
-                self.delta[0] = 0
-                self.cords[0] = x * tile_size + self.size + 1
-                self.pressed[0] = False
-        except IndexError:
-            self.delta[0] = 0
-            self.cords[0] = x * tile_size + tile_size + 1
-            self.pressed[0] = False
-
-        # Checks ability to go right
-        try:
-            if self.delta[0] > 0 and (game_map.get_map_value([int(x2), int(y)]) == 0 or
-                                      game_map.get_map_value([int(x2), int(y2)]) == 0) \
-                    and not (game_map.get_map_value([int(x), int(y)]) == 0 or
-                             game_map.get_map_value([int(x), int(y2)]) == 0):
-                self.delta[0] = 0
-                self.cords[0] = x2 * tile_size - self.size - 1
-                self.pressed[1] = False
-        except IndexError:
-            self.delta[0] = 0
-            self.cords[0] = x * tile_size - self.size - 1
-            self.pressed[0] = False
-
-        # Checks ability to go up
-        try:
-            if self.delta[1] < 0 and (game_map.get_map_value([int(x), int(y)]) == 0 or
-                                      game_map.get_map_value([int(x2), int(y)]) == 0) \
-                    and not (game_map.get_map_value([int(x), int(y2)]) == 0 or
-                             game_map.get_map_value([int(x2), int(y2)]) == 0):
-                self.delta[1] = 0
-                self.cords[1] = y * tile_size + tile_size + 1
-                self.pressed[3] = False
-        except IndexError:
-            self.delta[1] = 0
-            self.cords[1] = y * tile_size + tile_size + 1
-            self.pressed[1] = False
-
-        # Checks ability to go down
-        try:
-            if self.delta[1] > 0 and (game_map.get_map_value([int(x), int(y2)]) == 0 or
-                                      game_map.get_map_value([int(x2), int(y2)]) == 0) \
-                    and not (game_map.get_map_value([int(x), int(y)]) == 0 or
-                             game_map.get_map_value([int(x2), int(y)]) == 0):
-                self.delta[1] = 0
-                self.cords[1] = y2 * tile_size - self.size - 1
-                self.pressed[2] = False
-        except IndexError:
-            self.delta[1] = 0
-            self.cords[1] = y2 * tile_size - self.size - 1
-            self.pressed[1] = False
-
         # Checks if player is going too fast
         if self.delta[0] > self.max_speed:
             self.delta[0] = self.max_speed
@@ -727,6 +587,19 @@ class Player:
             self.delta[1] = self.max_speed
         if self.delta[1] < -self.max_speed:
             self.delta[1] = -self.max_speed
+        for wall in game_map.walls:
+            if wall.collide_rect(pygame.Rect(int(self.rect[0]), int(self.rect[1]), int(self.rect[2]), int(self.rect[3]))):
+                print("Good")
+                new_cords = self.cords
+                if self.delta[1] < 0 and wall.rect[1] < self.cords:
+                    new_cords[1] = wall.rect[1] + wall.rect[3]
+                if self.delta[1] > 0 and wall.rect[1] > self.cords:
+                    new_cords[1] = wall.rect[1] - wall.rect[3]
+                if self.delta[0] < 0 and wall.rect[0] < self.cords:
+                    new_cords[0] = wall.rect[0] + wall.rect[2]
+                if self.delta[0] > 0 and wall.rect[0] > self.cords:
+                    new_cords[0] = wall.rect[0] - wall.rect[2]
+                self.delta = [self.cords[0] - new_cords[0], self.cords[1] - new_cords[1]]
 
     def take_damage(self, damage):
         if self.boost_time > 0:
@@ -748,19 +621,23 @@ class Player:
         pass
 
     def move(self):
-        if self.boost_time > 0:
-            self.cords = [self.cords[0] + self.delta[0] * 2, self.cords[1] + self.delta[1] * 2]
-            self.boost_time -= 1
-        else:
-            self.cords = [self.cords[0] + self.delta[0], self.cords[1] + self.delta[1]]
-        self.rect = [self.cords[0], self.cords[1], self.size, self.size]
+        # if self.boost_time > 0:
+        #     self.cords = [self.cords[0] + self.delta[0] * 2, self.cords[1] + self.delta[1] * 2]
+        #     self.boost_time -= 1
+        # else:
+        #     self.cords = [self.cords[0] + self.delta[0], self.cords[1] + self.delta[1]]
+
+	    if self.boost_time > 0:
+		    update_draw_objects(self.delta[0] * -2, self.delta[1] * -2)
+	    else:
+		    update_draw_objects(self.delta[0] * -1, self.delta[1] * -1)
 
     def draw(self):
         self.rect = [self.cords[0], self.cords[1], self.size, self.size]
         if self.stronk > 49 or (self.stronk < 50 and not self.stronk % 2 == 0):
-            pygame.draw.rect(screen, self.color_2, pygame.Rect(self.rect[0], self.rect[1], self.rect[2], self.rect[3]))
+            pygame.draw.rect(screen, self.color_2, self.rect)
         else:
-            pygame.draw.rect(screen, self.color, pygame.Rect(self.rect[0], self.rect[1], self.rect[2], self.rect[3]))
+            pygame.draw.rect(screen, self.color, self.rect)
         for bullet in self.bullets:
             bullet.draw()
 
@@ -786,7 +663,8 @@ class Human(Player):
 
     def shoot(self):
         target = pygame.mouse.get_pos()
-        shoot(target=target, leaving=([self.cords[0] + (self.size / 2), self.cords[1] + (self.size / 2)]),
+        shoot(target=[target[0], target[1]],
+              leaving=([self.cords[0], self.cords[1]]),
               weapon=self.weapon)
         self.weapon.ammo -= 1
 
@@ -1009,7 +887,7 @@ def spawn_bosses(number=(0, 1)):
 
 def create_players():
     global players
-    players = [Human([size[0] / 2, size[0] / 2], Akkk(), (125, 255, 125))]
+    players = [Human([map_size[0] / 2, map_size[1] / 2], Akkk(), (125, 255, 125))]
 
 
 def create_companions():
@@ -1039,10 +917,17 @@ def update_power_ups():
         power_up.update()
 
 
+def update_draw_objects(x_add, y_add):
+	for object in drawn_objects:
+		object.adjust(x_add, y_add)
+
+
 pygame.init()
+drawn_objects = []
+size = [800, 800] 
+map_size = [size[0], size[1]]
 lives = 5
 font = pygame.font.Font('freesansbold.ttf', 20)
-size = [800, 800]
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption("ScreenSaver")
 Hoff = pygame.image.load('TheHoff.png')
@@ -1064,7 +949,7 @@ game_over_buttons = [Button([size[0] / 3, size[1] / 2], [size[0] / 3.5, size[0] 
                      Button([size[0] / 3 * 2, size[1] / 2], [size[0] / 3.5, size[0] / 8], string="Quit")]
 power_ups = [Health(), Shield()]
 # spawn_bosses()
-levels = [[0, 0, 1], [0, 0, 5], [0, 0, 10], [0, 0, 15], [0, 0, 25], [0, 0, 50]]
+levels = [[0, 0, 1]]  # , [0, 0, 5], [0, 0, 10], [0, 0, 15], [0, 0, 25], [0, 0, 50]]
 # [[1, 0, 0], [0, 1, 5], [2, 0, 5], [3, 0, 10], [1, 1, 20], [2, 1, 25]]
 enemies = []
 
@@ -1097,7 +982,7 @@ while running:
                 spawn_bosses(levels[0])
                 del levels[0]
             except IndexError:
-                spawn_bosses([0, 0, 250])
+                spawn_bosses([0, 0, 1])
         game_map.draw()
         update_bullets()
         draw_bullets()

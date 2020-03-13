@@ -273,14 +273,14 @@ def prep_to_stop():
 
 
 # My game stuff
-scene = read_current_scene(name="MultiPlayerMap")
-game_map = Map(scene)
-players = [Human([23, 12], Pistol()), Human([1, 12], Pistol())]
-tile_size = size[0] / len(scene)
-move_timer_max = 5
-move_timer = move_timer_max
-bullets = []
-directions = [[-1, 0], [1, 0], [0, 1], [0, -1], [0, 0]]  # 0:Right, 1:Left, 2:Down, 3: Up 4: Still
+#scene = read_current_scene(name="MultiPlayerMap")
+#game_map = Map(scene)
+#players = [Human([23, 12], Pistol()), Human([1, 12], Pistol())]
+#tile_size = size[0] / len(scene)
+#move_timer_max = 5
+#move_timer = move_timer_max
+#bullets = []
+#directions = [[-1, 0], [1, 0], [0, 1], [0, -1], [0, 0]]  # 0:Right, 1:Left, 2:Down, 3: Up 4: Still
 
 
 # Server Stuff Mostly
@@ -305,3 +305,4 @@ if __name__ == "__main__":
     ACCEPT_THREAD.join()
     QUIT.join()
     SERVER.close()
+print("Done")

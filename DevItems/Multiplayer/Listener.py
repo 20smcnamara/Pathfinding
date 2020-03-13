@@ -61,8 +61,8 @@ send_button.pack()
 top.protocol("WM_DELETE_WINDOW", on_closing)
 
 # ----Now comes the sockets part----
-HOST = '' # input('Enter host: ')
-PORT = 33000# input('Enter port: ')
+HOST = ''  # input('Enter host: ')
+PORT = 56976  # input('Enter port: ')
 
 if not PORT:
     PORT = 33000
@@ -71,10 +71,10 @@ else:
 
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
-
+print(1)
 client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect(ADDR)
-
+print(2)
 receive_thread = Thread(target=receive)
 receive_thread.start()
 tkinter.mainloop()  # Starts GUI execution.
