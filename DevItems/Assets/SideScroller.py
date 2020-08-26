@@ -2,8 +2,20 @@ import pygame
 import random
 import time
 import math
-from PathfindingMain.DevItems.Assets.Maps.SceneReader import read_current_scene
-from PathfindingMain.DevItems.Assets.RouteFinder import find_route
+
+
+def read_current_scene(name="MultiPlayerMap"):
+    scene = []
+    with open(name) as f:
+        contents = f.read()
+    in_list = contents.split("\n")
+    for line in in_list:
+        row = []
+        for status in line:
+            row.append(int(status))
+        if row:
+            scene.append(row)
+    return scene
 
 
 class DrawnObject:
@@ -30,20 +42,13 @@ class CollisionObject(DrawnObject):
         self.cords = [0, 0]
         super().__init__()
 
-    def update(self):
-        try:
-            self.rect = (self.cords[0], self.cords[1], self.size, self.size)
-        except:
-            pass
-
     def collide_rect(self, other):
+        print("-------------------------------------")
         if self.rect == "Shit":
             print("Mistakes were made")
             return False
         try:
             print("\n1" + str(self.rect))
-            print(other.left, other.top, other.width, other.height)
-            other.update()
             print(other.left, other.top, other.width, other.height)
             to_return = other.colliderect(pygame.Rect(self.rect[0], self.rect[1], self.rect[2], self.rect[3]))
             return to_return == 1
@@ -101,12 +106,14 @@ class Map:
     def __init__(self, scene):
         self.map = scene
         self.walls = [Wall((size[0] / 2 - map_size[0] / 2, 0, tile_size, map_size[1] - tile_size)),
-					   Wall((size[0] / 2 - map_size[0] / 2, 0, map_size[1], tile_size)),
-					   Wall((size[0] / 2 - map_size[0] / 2, size[1] / 2 + map_size[1] / 2 - tile_size, map_size[0], tile_size)),
-					   Wall((size[0] / 2 + map_size[0] / 2 - tile_size, 0, tile_size, map_size[1]))]
+                      Wall((size[0] / 2 - map_size[0] / 2, 0, map_size[1], tile_size)),
+                      Wall((size[0] / 2 - map_size[0] / 2, size[1] / 2 + map_size[1] / 2 - tile_size, map_size[0],
+                            tile_size)),
+                      Wall((size[0] / 2 + map_size[0] / 2 - tile_size, 0, tile_size, map_size[1]))]
 
-    def draw(self):  # TODO Clean up this code and then make it blit images instead of drawing rect's then add a delta
-                    # TODO to have parts of the map of screen at times. Then rework into an list of obstacles.
+    def draw(self):
+        # TODO Clean up this code and then make it blit images instead of drawing rect's then add a delta
+        # TODO to have parts of the map of screen at times. Then rework into an list of obstacles.
         screen.fill((50, 50, 150))
         for wall in self.walls:
             wall.draw()
@@ -518,7 +525,7 @@ class MeatShield(DrawnObject):
             self.cords = [self.cords[0] + 3 * dist_x / dist, self.cords[1] + 3 * dist_y / dist]
 
     def draw(self):
-        rect = [self.cords[0], self.cords[1], self.size, self.size]
+        rect = [int(self.cords[0]), int(self.cords[1]), int(self.size), int(self.size)]
         pygame.draw.rect(screen, self.color, pygame.Rect(rect[0], rect[1], rect[2], rect[3]))
 
 
@@ -588,18 +595,17 @@ class Player:
         if self.delta[1] < -self.max_speed:
             self.delta[1] = -self.max_speed
         for wall in game_map.walls:
-            if wall.collide_rect(pygame.Rect(int(self.rect[0]), int(self.rect[1]), int(self.rect[2]), int(self.rect[3]))):
-                print("Good")
-                new_cords = self.cords
-                if self.delta[1] < 0 and wall.rect[1] < self.cords:
-                    new_cords[1] = wall.rect[1] + wall.rect[3]
-                if self.delta[1] > 0 and wall.rect[1] > self.cords:
-                    new_cords[1] = wall.rect[1] - wall.rect[3]
-                if self.delta[0] < 0 and wall.rect[0] < self.cords:
-                    new_cords[0] = wall.rect[0] + wall.rect[2]
-                if self.delta[0] > 0 and wall.rect[0] > self.cords:
-                    new_cords[0] = wall.rect[0] - wall.rect[2]
-                self.delta = [self.cords[0] - new_cords[0], self.cords[1] - new_cords[1]]
+            new_cords = self.cords
+            if self.delta[1] < 0 and wall.rect[1] < self.cords[1]:
+                new_cords[1] = wall.rect[1] + wall.rect[3]
+            if self.delta[1] > 0 and wall.rect[1] > self.cords[1]:
+                new_cords[1] = wall.rect[1] - wall.rect[3]
+            if self.delta[0] < 0 and wall.rect[0] < self.cords[0]:
+                new_cords[0] = wall.rect[0] + wall.rect[2]
+            if self.delta[0] > 0 and wall.rect[0] > self.cords[0]:
+                new_cords[0] = wall.rect[0] - wall.rect[2]
+            self.delta = [self.cords[0] - new_cords[0], self.cords[1] - new_cords[1]]
+        self.rect = [self.cords[0], self.cords[1], self.size, self.size]
 
     def take_damage(self, damage):
         if self.boost_time > 0:
@@ -627,10 +633,10 @@ class Player:
         # else:
         #     self.cords = [self.cords[0] + self.delta[0], self.cords[1] + self.delta[1]]
 
-	    if self.boost_time > 0:
-		    update_draw_objects(self.delta[0] * -2, self.delta[1] * -2)
-	    else:
-		    update_draw_objects(self.delta[0] * -1, self.delta[1] * -1)
+        if self.boost_time > 0:
+            update_draw_objects(self.delta[0] * -2, self.delta[1] * -2)
+        else:
+            update_draw_objects(self.delta[0] * -1, self.delta[1] * -1)
 
     def draw(self):
         self.rect = [self.cords[0], self.cords[1], self.size, self.size]
